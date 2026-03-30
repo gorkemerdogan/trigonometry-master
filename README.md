@@ -1,153 +1,93 @@
+# Trigonometry Master
 
-# Smart-Solve
-**SMART-SOLVE** is a high-precision numerical computing suite for the Ethereum Virtual Machine (EVM). It implements **IEEE-754 quadruple precision** arithmetic within a modular **Diamond Standard (EIP-2535)** architecture, enabling complex scientific, engineering, and deterministic simulations on-chain.
+Deterministic quadruple-precision trigonometric operations for Ethereum-compatible environments.
 
----
+This library provides a stateless trigonometric module built for smart contracts that require high-precision numerical computation under deterministic EVM execution. It is designed for research-oriented and engineering-focused on-chain applications where reproducibility, precision, and modularity are critical.
+
+## Overview
+
+The **Trigonometry Master** is part of a modular mathematical system designed with the **Diamond Pattern** architecture in mind. It implements core trigonometric and inverse trigonometric functions using **IEEE-754 binary128** floating-point representation through `bytes16`.
+
+The library is intended for deterministic on-chain numerical workflows such as:
+
+- numerical analysis
+- optimization algorithms
+- differential equation solvers
+- geometric and scientific computation
+- verifiable mathematical research on EVM-based platforms
 
 ## Key Features
 
-* **Quadruple Precision:** Full IEEE-754 binary128 implementation using `bytes16` (~34 decimal digits).
-* **Deterministic Execution:** Identical results across all EVM-compatible nodes for verifiable research.
-* **Comprehensive Math Suite:** Advanced calculus, linear algebra, and iterative solvers.
-* **Stateless Libraries:** Optimized numerical logic decoupled from storage.
+- **Diamond Pattern Compatibility**  
+  Designed to integrate cleanly into modular smart contract systems based on the Diamond Pattern.
 
----
+- **Quadruple Precision**  
+  Full **IEEE-754 binary128** implementation using `bytes16`, providing approximately **34 decimal digits** of precision.
 
-## Feature Breakdown
+- **Deterministic Execution**  
+  Produces identical outputs across all EVM-compatible nodes, enabling reproducible and verifiable computation.
 
-### 1. Matrix Operations (`MatrixMaster.sol`)
-* **Creation:** Zeros, Ones, Identity, Diagonal, deterministic pseudo-random matrices (seeded).
-* **Sparse Support:** CSR matrices including zero, identity, diagonal, and COO-to-CSR conversion.
-* **Access & Manipulation:** Element access and mutation (row-major layout).
-* **Reshape & Slicing:** Contiguous submatrix extraction and shape-preserving reshape.
-* **Transformations:** Matrix transpose.
-* **Elementwise Arithmetic:** Addition, subtraction, scalar multiplication, scalar division.
-* **Multiplication:** Matrix–matrix, matrix–vector, sparse matrix–vector (CSR).
-* **Vector Ops:** Dot product, Euclidean norm, normalization, convergence checks.
-* **Determinant:** LU-based determinant with partial pivoting.
-* **Inversion:** Gauss–Jordan elimination for square matrices.
-* **Eigen Analysis:** Dominant eigenvalue and eigenvector via power iteration.
+- **Stateless Library Design**  
+  Uses optimized stateless trigonometric logic without persistent storage dependencies.
 
-### 2. Linear Solvers & Optimization (`LinearSolvers.sol`)
-* **Direct Solvers:** Gaussian elimination with partial pivoting.
-* **LU Decomposition:** Doolittle LU factorization (no pivoting).
-* **Iterative Solvers:** Jacobi and Gauss–Seidel methods.
-* **Least Squares:** Fixed-step gradient descent.
+## Trigonometry Master
 
-### 3. Numerical Differentiation (`Differentiation.sol`)
-* **Methods:** Forward difference, backward difference, and centered difference schemes.
-* **Accuracy:** First-order O(h) for forward/backward differences, second-order O(h²) for centered difference.
-* **Step Size Control:** User-defined step size with global configuration fallback and safe default.
+### Supported Methods
 
-### 4. Numerical Integration (`Integration.sol`)
-* **Methods:** Composite trapezoidal rule, Simpson’s 1/3 rule, and Simpson’s 3/8 rule.
-* **Accuracy:** Second-order accuracy for trapezoidal rule, fourth-order accuracy for Simpson-based rules under smooth integrands.
-* **Validation:** Enforces method-specific constraints (even 'n' for Simpson 1/3, 'n % 3 == 0' for Simpson 3/8).
+The library provides the following methods:
 
-### 5. Ordinary Differential Equation (ODE) Solvers (`ODESolver.sol`)
-* **Methods:** Euler’s method, RK2 (Midpoint), RK2 (Heun / Improved Euler), and classical RK4.
-* **Accuracy:** First-order accuracy for Euler, second-order accuracy for RK2 methods, and fourth-order accuracy for RK4.
-* **Design Scope:** Single-step integrators intended for deterministic on-chain simulation and controlled step advancement.
+- `sin`
+- `cos`
+- `tan`
+- `cot`
+- `arcsin`
+- `arccos`
+- `arctan`
 
-### 6. Polynomial Utilities (`Polynomial.sol`)
-* **Evaluation:** Polynomial evaluation using Horner’s method, including optimized evaluation for monic polynomials.
-* **Derivatives:** Exact polynomial derivative computation and combined evaluation.
-* **Algebraic Operations:** Coefficient-wise addition, subtraction, scalar multiplication, and polynomial multiplication via convolution.
-* **Integration:** Exact computation of the indefinite integral polynomial with configurable constant of integration.
-* **Division:** Synthetic division by linear factors of the form \((x - r)\), returning quotient and remainder.
-* **Utilities:** Degree computation, trailing-zero trimming, and canonical zero-polynomial handling.
+These methods are internally routed through dedicated modules for:
 
-### 7. Root Finding (`RootFinding.sol`)
-* **Methods:** Bisection, Newton–Raphson (analytic derivative), and Secant (derivative-free).
-  * Bisection enforces sign change on the initial interval.  
-  * Newton method guards against zero derivatives.  
-  * Secant method guards against zero slope between iterates.
-* **Convergence Control:** User-specified tolerance with global configuration fallback and enforced minimum tolerance.
+- sine / cosine
+- tangent / cotangent
+- inverse trigonometric operations
 
-### 8. Trigonometry Stack (`Trigonometry.sol`)
-* **Methods:** sin, cos, tan, cot, arcsin, arccos, and arctan, internally routed through dedicated sine/cosine, tangent/cotangent, and inverse-trigonometry modules.
-* **Design Scope:** Deterministic, pure-function trigonometric primitives intended for on-chain numerical analysis, optimization, differential equations, and geometric algorithms.
+### Design Scope
 
----
+The library is designed as a set of **deterministic, pure-function trigonometric primitives** for on-chain mathematical computation.
 
-## System Architecture
+Its primary purpose is to support advanced numerical applications such as:
 
-SMART-SOLVE is structured as a layered numerical stack designed to maximize code reuse, numerical precision, and EVM bytecode efficiency while enabling advanced scientific computation on-chain.
-The architecture separates core floating-point arithmetic, numerical constants, and high-level numerical algorithms, ensuring that heavy quad-precision logic is compiled once and reused across all modules.
+- optimization routines
+- differential equation methods
+- geometric algorithms
+- scientific and engineering calculations
+- blockchain-based numerical experimentation
 
----
+## Precision Model
 
-### Core Math Layer
+All computations are performed using **quadruple-precision floating-point numbers** represented as `bytes16`, based on the **IEEE-754 binary128** standard.
 
-This layer provides the numerical foundation for the entire system and is the only place where raw ABDK quad logic is directly referenced.
+This precision model is especially useful for smart contract applications where traditional integer-based arithmetic is insufficient for:
 
-* **`MathLib.sol`**  
-  Thin public-call wrapper around `ABDKMathQuad` exposing IEEE-754 binary128 (`bytes16`) operations such as add, sub, zero checks, absolute value, and integer <-> quad conversions.
-  All numerical libraries call `MathLib` instead of inlining ABDK logic, drastically reducing bytecode size and preventing EVM contract size limit violations.
+- trigonometric evaluation
+- inverse trigonometric approximation
+- iterative numerical methods
+- error-sensitive mathematical workflows
 
-* **`QuadConstants.sol`**  
-  Centralized repository of high-precision constants and tolerances including π, π/2, rational helpers (1/2, 1/6), and predefined epsilons (1e-6 → 1e-30).
-  Provides a single authoritative source for numerical thresholds and avoids duplicated or inconsistent constants.
+## Architecture Notes
 
----
+The library is built for modular integration and is suitable for systems following a **Diamond Pattern** structure. Its stateless nature makes it appropriate for reusable deployment in larger mathematical or scientific smart contract frameworks.
 
-## Project Structure
+The trigonometric functions are separated by logical responsibility into dedicated internal modules, improving maintainability, extensibility, and clarity of implementation.
 
-```text
-contracts/
-├── facets/
-│   ├── core/              # Diamond management (Cut, Loupe, Ownership)
-│   │   ...
-│   ├── numeric/
-│   │   ├── DifferentiationFacet.sol
-│   │   ├── IntegrationFacet.sol
-│   │   ├── LinearSolversFacet.sol
-│   │   ├── MatrixMasterFacet.sol
-│   │   ├── NumericConfigFacet.sol
-│   │   ├── ODESolverFacet.sol
-│   │   ├── PolynomialFacet.sol
-│   │   ├── RootFindingFacet.sol
-│   │   └── TrigonometryFacet.sol
-│
-├── interfaces/
-│   │   ...                # EIP-2535 and Custom Interfaces
-├── libraries/
-│   ├── numeric/
-│   │   ├── Differentiation.sol
-│   │   ├── Integration.sol
-│   │   ├── LinearSolvers.sol
-│   │   ├── MatrixMaster.sol
-│   │   ├── ODESolver.sol
-│   │   ├── Polynomial.sol
-│   │   └── RootFinding.sol
-│   │
-│   ├── trigonometry/
-│   │   ├── Trigonometry.sol
-│   │   ├── TrigonometryArc.sol
-│   │   ├── TrigonometrySinCos.sol
-│   │   └── TrigonometryTanCot.sol
-│   │
-│   ├── LibSmartSolve.sol
-│   ├── MathLib.sol        # Math library depends on ABDKMathQuad
-│   └── QuadConstants.sol  # Math constants
-│   │   ...
-```
-## Precision & Performance
+## Intended Use Cases
 
-SMART-SOLVE is engineered for environments where standard `uint256` fixed-point math is insufficient. By implementing the IEEE-754 standard, we provide floating-point capabilities directly on the EVM.
+This library is suitable for projects involving:
 
-### Technical Specifications
-
-| Parameter | Specification | Details |
-| :--- | :--- | :--- |
-| **Standard** | IEEE-754 binary128 | Quadruple precision floating-point format |
-| **Storage Type** | `bytes16` | Compact representation for stack efficiency |
-| **Precision** | ~34 Decimal Digits | High-fidelity scientific significand |
-
-> [!WARNING]
-> **Gas Profile**: Computation in quad-precision is intensive. Operations like `Matrix Inversion` or `RK4 Integration` are optimized for **Correctness** and **Reproducibility** rather than low-cost DeFi swaps. Use this suite for high-value simulations, research, and engineering logic where accuracy is non-negotiable.
-
----
+- on-chain scientific computation
+- deterministic simulation components
+- mathematical tooling for blockchain research
+- high-precision geometric calculations
+- educational and experimental numerical smart contracts
 
 ## License
 
