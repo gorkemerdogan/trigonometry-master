@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "../libraries/Trigonometry.sol";
+import { TrigonometrySinCos as TSC } from "../libraries/TrigonometrySinCos.sol";
+import { TrigonometryTanCot as TTC } from "../libraries/TrigonometryTanCot.sol";
+import { TrigonometryArc as TA } from "../libraries/TrigonometryArc.sol";
 
 /**
  * @title TrigonometryFacet
@@ -11,30 +13,30 @@ import "../libraries/Trigonometry.sol";
  */
 contract TrigonometryFacet {
     function sin(bytes16 x) external pure returns (bytes16) {
-        return Trigonometry.sin(x);
+        return TSC.sin(x);
     }
 
     function cos(bytes16 x) external pure returns (bytes16) {
-        return Trigonometry.cos(x);
+        return TSC.cos(x);
     }
 
     function tan(bytes16 x) external pure returns (bytes16) {
-        return Trigonometry.tan(x);
+        return TTC.tan(x);
     }
 
     function cot(bytes16 x) external pure returns (bytes16) {
-        return Trigonometry.cot(x);
+        return TTC.cot(x);
     }
 
     function asin(bytes16 x) external pure returns (bytes16) {
-        return Trigonometry.asin(x);
+        return TA.asin(x);
     }
 
     function acos(bytes16 x) external pure returns (bytes16) {
-        return Trigonometry.acos(x);
+        return TA.acos(x);
     }
 
     function atan(bytes16 x) external pure returns (bytes16) {
-        return Trigonometry.atan(x);
+        return TA.atan(x);
     }
 }

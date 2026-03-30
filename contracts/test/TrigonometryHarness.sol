@@ -2,7 +2,10 @@
 pragma solidity ^0.8.20;
 
 import { MathLib } from "../libraries/MathLib.sol";
-import "../libraries/Trigonometry.sol";
+
+import { TrigonometrySinCos as TSC } from "../libraries/TrigonometrySinCos.sol";
+import { TrigonometryTanCot as TTC } from "../libraries/TrigonometryTanCot.sol";
+import { TrigonometryArc as TA } from "../libraries/TrigonometryArc.sol";
 
 /**
  * @title TrigonometryHarness
@@ -164,7 +167,7 @@ contract TrigonometryHarness {
      * @return sin(x).
      */
     function sin(bytes16 x) external pure returns (bytes16) {
-        return Trigonometry.sin(x);
+        return TSC.sin(x);
     }
 
     /**
@@ -173,7 +176,7 @@ contract TrigonometryHarness {
      * @return cos(x).
      */
     function cos(bytes16 x) external pure returns (bytes16) {
-        return Trigonometry.cos(x);
+        return TSC.cos(x);
     }
 
     /**
@@ -182,7 +185,7 @@ contract TrigonometryHarness {
      * @return tan(x) or NaN if undefined.
      */
     function tan(bytes16 x) external pure returns (bytes16) {
-        return Trigonometry.tan(x);
+        return TTC.tan(x);
     }
 
     /**
@@ -191,7 +194,7 @@ contract TrigonometryHarness {
      * @return cot(x) or NaN if undefined.
      */
     function cot(bytes16 x) external pure returns (bytes16) {
-        return Trigonometry.cot(x);
+        return TTC.cot(x);
     }
 
     /**
@@ -200,7 +203,7 @@ contract TrigonometryHarness {
      * @return arcsin(x).
      */
     function asin(bytes16 x) external pure returns (bytes16) {
-        return Trigonometry.asin(x);
+        return TA.asin(x);
     }
 
     /**
@@ -209,7 +212,7 @@ contract TrigonometryHarness {
      * @return arccos(x).
      */
     function acos(bytes16 x) external pure returns (bytes16) {
-        return Trigonometry.acos(x);
+        return TA.acos(x);
     }
 
     /**
@@ -218,6 +221,6 @@ contract TrigonometryHarness {
      * @return arctan(x).
      */
     function atan(bytes16 x) external pure returns (bytes16) {
-        return Trigonometry.atan(x);
+        return TA.atan(x);
     }
 }
