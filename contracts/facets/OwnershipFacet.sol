@@ -1,0 +1,32 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import { LibTrigMaster } from "../libraries/LibTrigMaster.sol";
+import { IERC173 } from "../interfaces/IERC173.sol";
+
+/**
+ * @title OwnershipFacet
+ * @notice Implements the IERC173 ownership standard, providing external
+ *         accessors for retrieving and updating the contract owner.
+ */
+
+contract OwnershipFacet is IERC173 {
+
+    /**
+     * @notice Returns the address of the current owner
+     */
+    function owner() external view override returns (address) {
+        return LibTrigMaster.contractOwner();
+    }
+
+    /**
+     * @notice Transfers ownership to a new address
+     * @param newOwner The address of the new owner
+     */ 
+    function transferOwnership(address newOwner) external override {
+        LibTrigMaster.enforceIsContractOwner();
+        
+        address prevOwner = LibTrigMaster.setContractOwner(newOwner);        
+        emit OwnershipTransferred(prevOwner, newOwner);
+    }
+}
