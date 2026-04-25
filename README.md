@@ -94,7 +94,7 @@ This library is suitable for projects involving:
 Distributed under the **MIT License**.
 
 ```text
-Copyright (c) 2026 SMART-SOLVE
+Copyright (c) 2026 TRIGONOMETRY MASTER
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
