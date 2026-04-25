@@ -149,11 +149,11 @@ library QuadConstants {
     // Default Config
     // -------------------------------------------------------------
 
-    /// Default maximum iteration for SmartSolve
+    /// Default maximum iteration for TrigonometryMaster
     uint256 internal constant DEFAULT_MAX_ITER = 100;
 
     /**
-     * @notice Returns the default differentiation step size for SmartSolve. Alias for EPS_1e8().
+     * @notice Returns the default differentiation step size for TrigonometryMaster. Alias for EPS_1e8().
      * @return bytes16 1 x 10^-8
      */
     function DEFAULT_DIFF_STEP() internal pure returns (bytes16) {
@@ -161,7 +161,7 @@ library QuadConstants {
     }
 
     /**
-     * @notice Returns the default numerical tolerance for SmartSolve. Alias for EPS_1e12().
+     * @notice Returns the default numerical tolerance for TrigonometryMaster. Alias for EPS_1e12().
      * @return bytes16 1 x 10^-12
      */
     function DEFAULT_TOL() internal pure returns (bytes16) {
@@ -169,7 +169,7 @@ library QuadConstants {
     }
 
     /**
-     * @notice Returns the default minimum tolerance for SmartSolve. Alias for EPS_1e15().
+     * @notice Returns the default minimum tolerance for TrigonometryMaster. Alias for EPS_1e15().
      * @return bytes16 1 x 10^-15
      */
     function DEFAULT_MIN_TOL() internal pure returns (bytes16) {

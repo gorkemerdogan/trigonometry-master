@@ -5,10 +5,10 @@ import { LibTrigMaster } from "./libraries/LibTrigMaster.sol";
 import { IDiamondCut } from "./interfaces/IDiamondCut.sol";
 
 /**
- * @title SmartSolve
- * @notice Primary diamond (EIP-2535) proxy contract for the SmartSolve system.
+ * @title TrigonometryMaster
+ * @notice Primary diamond (EIP-2535) proxy contract for the TrigonometryMaster system.
  */
-contract SmartSolve {
+contract TrigonometryMaster {
 
     /**
      * @notice Deploys the diamond and installs initial upgrade capability.
@@ -43,7 +43,7 @@ contract SmartSolve {
 
         // Locate facet for the function selector
         address facet = ds.selectorToFacetAndPosition[msg.sig].facetAddress;
-        require(facet != address(0), "SmartSolve: Function not found");
+        require(facet != address(0), "TrigonometryMaster: Function not found");
 
         // Forward call to facet
         assembly {

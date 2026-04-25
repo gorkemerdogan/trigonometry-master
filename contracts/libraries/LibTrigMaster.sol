@@ -5,13 +5,13 @@ import { IDiamondCut } from "../interfaces/IDiamondCut.sol";
 
 /**
  * @title LibTrigMaster
- * @notice Internal library providing diamond storage and upgrade logic for the SmartSolve system.
+ * @notice Internal library providing diamond storage and upgrade logic for the TrigonometryMaster system.
  *         Implements the EIP-2535 Diamond Storage pattern.
  */
 library LibTrigMaster {
     // Fixed storage slot used for diamond storage (EIP-2535 pattern)
     bytes32 internal constant DIAMOND_STORAGE_POSITION =
-        keccak256("smart-solve.diamond.storage");
+        keccak256("trigonometry-master.diamond.storage");
 
     // ------------------------------------------------------------
     // Data Structures
@@ -38,7 +38,7 @@ library LibTrigMaster {
     }
 
     /**
-     * @notice Core storage layout for the SmartSolve Diamond (EIP-2535).
+     * @notice Core storage layout for the TrigonometryMaster Diamond (EIP-2535).
      *         Lives at the fixed DIAMOND_STORAGE_POSITION slot to avoid collisions.
      *
      *          selectorToFacetAndPosition:

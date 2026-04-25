@@ -13,7 +13,7 @@ library LibNumericConfig {
     uint256 private constant DEFAULT_MAX_ITER = 100;
 
     // Fixed storage slot for numeric config (unique hash key)
-    bytes32 internal constant SLOT = keccak256("smart-solve.numeric.config.v1");
+    bytes32 internal constant SLOT = keccak256("trigonometry-master.numeric.config.v1");
 
     /**
     * @notice Global numeric configuration values.
