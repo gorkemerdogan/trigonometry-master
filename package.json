@@ -1,20 +1,17 @@
 {
   "name": "@gorkemerdogan/trigonometry-master",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Deterministic quadruple-precision trigonometric operations for Ethereum-compatible environments.",
   "license": "MIT",
   "author": "Mahmut Görkem Erdoğan",
   "files": [
     "contracts"
   ],
-  "keywords": [
-    "solidity",
-    "ethereum",
-    "evm",
-    "trigonometry",
-    "quadruple-precision",
-    "binary128",
-    "smart-contracts",
-    "numerical-methods"
-  ]
+  "dependencies": {
+    "abdk-libraries-solidity": "^3.0.0"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "npm:@nomicfoundation/hardhat-toolbox@hh2",
+    "hardhat": "^2.28.0"
+  }
 }
