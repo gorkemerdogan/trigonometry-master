@@ -8,6 +8,11 @@ type HighResolutionHarness = Contract & {
     cosCore(x: string): Promise<string>;
     sin(x: string): Promise<string>;
     cos(x: string): Promise<string>;
+    asin(x: string): Promise<string>;
+    atan(x: string): Promise<string>;
+    poleThreshold(): Promise<string>;
+    eps1e30(): Promise<string>;
+    halfPi(): Promise<string>;
 };
 
 const DECIMAL_DIGITS = 90;
@@ -163,6 +168,28 @@ function oracleSinCos(input: bigint): { sin: bigint; cos: bigint } {
     }
 
     return { sin: sinSum, cos: cosSum };
+}
+
+function oracleAtan(input: bigint): bigint {
+    const negative = input < 0n;
+    const magnitude = negative ? -input : input;
+
+    if (magnitude > DECIMAL_SCALE) {
+        const reciprocal = divRound(DECIMAL_SCALE * DECIMAL_SCALE, magnitude);
+        const correction = oracleAtan(reciprocal);
+        const result = HALF_PI - correction;
+        return negative ? -result : result;
+    }
+
+    const xSquared = mulFixed(magnitude, magnitude);
+    let term = magnitude;
+    let sum = magnitude;
+    for (let n = 1; n < 200; n++) {
+        term = -divRound(mulFixed(term, xSquared) * BigInt(2 * n - 1), BigInt(2 * n + 1));
+        sum += term;
+        if (abs(term) <= 1n) break;
+    }
+    return negative ? -sum : sum;
 }
 
 function observation(inputRaw: string, actualRaw: string, expected: bigint): Observation {
@@ -351,5 +378,35 @@ describe("Trigonometry sin/cos high-resolution characterization", function () {
 
         expect(sinResult.maxAbsolute.absError).to.be.lte(edgeCeiling);
         expect(cosResult.maxAbsolute.absError).to.be.lte(edgeCeiling);
+    });
+
+    it("decodes corrected trigonometric thresholds and exercises their branches", async function () {
+        const oneE30 = decimalFixed("0.000000000000000000000000000001");
+        const oneE30Tolerance = decimalFixed("0.000000000000000000000000000000000000000000000000000000000001");
+        const twoToNegative112 = divRound(DECIMAL_SCALE, 1n << 112n);
+
+        expect(await harness.poleThreshold()).to.equal("0x3f8f0000000000000000000000000000");
+        expect(abs(binary128ToFixed(await harness.poleThreshold()) - twoToNegative112)).to.be.lte(1n);
+        expect(abs(binary128ToFixed(await harness.eps1e30()) - oneE30)).to.be.lte(oneE30Tolerance);
+
+        const belowAsinTiny = encodeFixed(decimalFixed("0.0000005"));
+        const aboveAsinTiny = encodeFixed(decimalFixed("0.000002"));
+        expect(await harness.asin(belowAsinTiny)).to.equal(belowAsinTiny);
+        expect(await harness.asin(aboveAsinTiny)).to.not.equal(aboveAsinTiny);
+    });
+
+    it("preserves atan corrections below the large-input cutoff", async function () {
+        const twoTo64 = "0x403f0000000000000000000000000000";
+        const twoTo112 = "0x406f0000000000000000000000000000";
+        const twoTo114 = "0x40710000000000000000000000000000";
+        const halfPiRaw = await harness.halfPi();
+        const actualAtTwoTo64 = await harness.atan(twoTo64);
+        const expectedAtTwoTo64 = oracleAtan(binary128ToFixed(twoTo64));
+        const atanTolerance = decimalFixed("0.000000000000000000000000000001");
+
+        expect(actualAtTwoTo64).to.not.equal(halfPiRaw);
+        expect(abs(binary128ToFixed(actualAtTwoTo64) - expectedAtTwoTo64)).to.be.lte(atanTolerance);
+        expect(await harness.atan(twoTo112)).to.not.equal(halfPiRaw);
+        expect(await harness.atan(twoTo114)).to.equal(halfPiRaw);
     });
 });

@@ -14,7 +14,14 @@ library TrigonometryTanCot {
 
     bytes16 internal constant QZERO = 0x00000000000000000000000000000000;
     bytes16 internal constant QNAN  = 0x7fff8000000000000000000000000000;
-    bytes16 internal constant TINY  = 0x00010000000000000000000000000000; // 2^-112
+    // 2^-112, the binary128 unit in the last place around 1. This is a
+    // denominator guard for exact/near-exact poles, not an accuracy bound.
+    bytes16 internal constant TINY  = 0x3F8F0000000000000000000000000000;
+
+    /// @dev Exposes the exact pole guard to test-only harnesses without changing public APIs.
+    function poleThreshold() internal pure returns (bytes16) {
+        return TINY;
+    }
 
     // ------------------------------------------------------------
     // tan(x)

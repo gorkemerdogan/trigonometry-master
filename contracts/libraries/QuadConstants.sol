@@ -142,7 +142,7 @@ library QuadConstants {
      * @return bytes16 1 x 10^-30
      */
     function EPS_1e30() internal pure returns (bytes16) {
-        return 0x3cd203af9ee756159b00000000000000;
+        return fromFrac(1, 1_000_000_000_000_000_000_000_000_000_000);
     }
 
     // -------------------------------------------------------------

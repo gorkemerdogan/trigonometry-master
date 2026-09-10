@@ -44,9 +44,9 @@ library TrigonometryArc {
             return QNAN;
         }
 
-        // Tiny x: asin(x) ≈ x
-        // Same threshold as sin small-angle shortcut.
-        bytes16 tiny = 0x3F8A39EF35793C767300000000000000; // ~1e-6
+        // Tiny x: asin(x) ≈ x. Use the shared, correctly constructed 1e-6
+        // threshold rather than relying on a hand-encoded binary128 literal.
+        bytes16 tiny = QC.EPS_1e6();
         if (MathLib.cmp(ax, tiny) < 0) {
             return x;
         }
@@ -193,12 +193,23 @@ library TrigonometryArc {
         bytes16 one = MathLib.fromUInt(1);
         bytes16 ax  = MathLib.abs(x);
 
-        // Fast path for very large values: atan(x) → ±π/2
-        bytes16 huge = 0x403f0000000000000000000000000000; // 2^112
+        // Above 2^113, the leading 1/x correction is below half a binary128 ulp
+        // near π/2, so returning the limiting value is safe for this format.
+        bytes16 huge = 0x40700000000000000000000000000000; // 2^113
         if (MathLib.cmp(ax, huge) > 0) {
             return (MathLib.cmp(x, QZERO) > 0)
                 ? QC.HALF_PI()
                 : MathLib.neg(QC.HALF_PI());
+        }
+
+        // For |x| > 1, avoid forming x / sqrt(1 + x²): the added 1 can round
+        // away long before the atan correction is negligible. The reciprocal
+        // identity preserves that correction while reusing the small-input path.
+        if (MathLib.cmp(ax, one) > 0) {
+            bytes16 reciprocal = MathLib.div(one, ax);
+            bytes16 correction = atan(reciprocal);
+            bytes16 result = MathLib.sub(QC.HALF_PI(), correction);
+            return MathLib.cmp(x, QZERO) < 0 ? MathLib.neg(result) : result;
         }
 
         // (1) Initial estimate using asin(u)
@@ -212,7 +223,7 @@ library TrigonometryArc {
 
         // (2) Newton-Raphson refinement on f(t) = tan(t) - x
         //     t_next = t - (tan(t) - x) / (1 + tan²(t))
-        bytes16 tiny = 0x3F8A39EF35793C767300000000000000; // ~1e-6
+        bytes16 tiny = QC.EPS_1e6();
         for (uint8 i = 0; i < 2; ++i) {
             bytes16 sy = TSC.sin(y);
             bytes16 cy = TSC.cos(y);
