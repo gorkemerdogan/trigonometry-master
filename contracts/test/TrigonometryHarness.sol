@@ -162,6 +162,15 @@ contract TrigonometryHarness {
     // ------------------------------------------------------------
 
     /**
+     * @notice Returns its bytes16 input unchanged.
+     * @dev Used only as a transaction/calldata baseline for gas benchmarks; it
+     *      has the same one-bytes16 ABI argument shape as trig entry points.
+     */
+    function benchmarkIdentity(bytes16 x) external pure returns (bytes16) {
+        return x;
+    }
+
+    /**
      * @notice Computes sin(x) using trigonometric range reduction.
      * @param x Quadruple-precision angle.
      * @return sin(x).

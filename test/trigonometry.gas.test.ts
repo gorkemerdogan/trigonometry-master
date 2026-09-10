@@ -1,7 +1,12 @@
 // SPDX-License-Identifier: MIT
 import {ethers} from "hardhat";
 import type {Contract} from "ethers";
-import {measureTransactionGas, printBlockRegular} from "./test-utils";
+import {
+    createTransactionFailureCounts,
+    measureTransactionGas,
+    printBlockRegular,
+    printTransactionFailureSummary,
+} from "./test-utils";
 
 // ------------------------------------------------------------
 // Types
@@ -21,6 +26,7 @@ type TrigHarness = Contract & {
     atan(x: string): Promise<string>;
 
     add(a: string, b: string): Promise<string>;
+    benchmarkIdentity(x: string): Promise<string>;
 
     QPI(): Promise<string>;
     QHALF_PI(): Promise<string>;
@@ -32,11 +38,11 @@ type TrigHarness = Contract & {
 // ------------------------------------------------------------
 
 const SCALE = 1e12;
-const REPEAT_COUNT = 10;
 const EXECUTION_MODEL = "transaction_plus_call_result";
 const EXECUTION_PATH = "harness_direct";
 const GAS_MEASUREMENT = "transaction_receipt_gas (callback-free)";
 const RESULT_EXECUTION = "eth_call_result";
+const HARNESS_SCOPE = "Harness-direct receipt gas excludes TrigonometryFacet, Diamond fallback routing, deployment, diamond-cut installation, and MathLib deployment costs.";
 
 async function toQuad(h: TrigHarness, x: number): Promise<string> {
     return h.fromFloat(BigInt(Math.round(x * SCALE)));
@@ -125,12 +131,34 @@ describe("Trigonometry - Gas Growth Tests", function () {
         QHALF_PI = await harness.QHALF_PI();
     });
 
+    it("reports a direct-harness transaction/calldata baseline without subtracting it", async function () {
+        const counts = createTransactionFailureCounts();
+        const input = await toQuad(harness, Math.PI / 4);
+        const calldata = harness.interface.encodeFunctionData("benchmarkIdentity", [input]);
+        const baselineGas = await measureTransactionGas(harness, "benchmarkIdentity", [input], counts);
+
+        console.log("------------------------------------------------------------");
+        console.log("DIRECT-HARNESS TRANSACTION/CALLDATA BASELINE");
+        console.log("------------------------------------------------------------");
+        console.log(`Execution path: ${EXECUTION_PATH}; gas metric: ${GAS_MEASUREMENT}.`);
+        console.log(HARNESS_SCOPE);
+        console.log(`Method: benchmarkIdentity(bytes16); calldata bytes: ${(calldata.length - 2) / 2}.`);
+        console.log(`Baseline receipt gas: ${baselineGas}. This baseline is reported separately and is not subtracted from trig receipt gas.`);
+        printTransactionFailureSummary("Direct-harness baseline", counts);
+    });
+
     // ------------------------------------------------------------
     // Section 1: Gas Sensitivity to Input Magnitude
     // ------------------------------------------------------------
 
     describe("Section 1: Gas Sensitivity to Input Magnitude", function () {
         let testNo = 0;
+        const counts = createTransactionFailureCounts();
+
+        after(function () {
+            console.log(`Section 1 scope: ${HARNESS_SCOPE}`);
+            printTransactionFailureSummary("Section 1", counts);
+        });
 
         const INV_CASES: number[] = Array.from({ length: 2001 }, (_, i) =>
             Number((-1 + i * 0.001).toFixed(3))
@@ -193,7 +221,7 @@ describe("Trigonometry - Gas Growth Tests", function () {
                 it(`Test ${t}: ${m.label} gas sensitivity for x=${x}`, async function () {
                     const qx = await toQuad(harness, x);
 
-                    const gas = await measureTransactionGas(harness, m.method, [qx]);
+                    const gas = await measureTransactionGas(harness, m.method, [qx], counts);
 
                     const out =
                         m.method === "sin" ? await harness.sin(qx) :
@@ -229,7 +257,7 @@ describe("Trigonometry - Gas Growth Tests", function () {
                 it(`Test ${t}: ${m.label} gas sensitivity for x=${x}`, async function () {
                     const qx = await toQuad(harness, x);
 
-                    const gas = await measureTransactionGas(harness, m.method, [qx]);
+                    const gas = await measureTransactionGas(harness, m.method, [qx], counts);
 
                     const out =
                         m.method === "asin"
@@ -263,7 +291,7 @@ describe("Trigonometry - Gas Growth Tests", function () {
             it(`Test ${t}: atan gas sensitivity for x=${x}`, async function () {
                 const qx = await toQuad(harness, x);
 
-                const gas = await measureTransactionGas(harness, "atan", [qx]);
+                const gas = await measureTransactionGas(harness, "atan", [qx], counts);
 
                 const out = await harness.atan(qx);
                 const isNan = await harness.isNaN(out);
@@ -293,6 +321,12 @@ describe("Trigonometry - Gas Growth Tests", function () {
 
     describe("Section 2: Gas Sensitivity to Critical Region for Tangent", function () {
         let testNo = 0;
+        const counts = createTransactionFailureCounts();
+
+        after(function () {
+            console.log(`Section 2 scope: ${HARNESS_SCOPE}`);
+            printTransactionFailureSummary("Section 2", counts);
+        });
 
         const EPSILON = 1e-6;
 
@@ -324,7 +358,7 @@ describe("Trigonometry - Gas Growth Tests", function () {
             it(`Test ${t}: tan gas sensitivity at critical region ${c.label}`, async function () {
                 const qx = await c.buildInput();
 
-                const gas = await measureTransactionGas(harness, "tan", [qx]);
+                const gas = await measureTransactionGas(harness, "tan", [qx], counts);
 
                 const out = await harness.tan(qx);
                 const isNan = await harness.isNaN(out);
@@ -349,15 +383,23 @@ describe("Trigonometry - Gas Growth Tests", function () {
     });
 
     // ------------------------------------------------------------
-    // Section 3: Gas Consumption over Full Domain (1 degree resolution, repeated)
+    // Section 3: Full-Domain Receipt-Gas Consistency Check (1 degree resolution)
     // ------------------------------------------------------------
 
-    describe("Section 3: Gas Consumption over Full Domain", function () {
+    describe("Section 3: Full-Domain Receipt-Gas Consistency Check", function () {
         let testNo = 0;
+        const counts = createTransactionFailureCounts();
 
-        const FULL_DOMAIN_REPEAT_COUNT = 5;
+        // Duplicate submissions check deterministic local receipt gas only. They are
+        // not independent statistical samples, and a completed transaction cannot
+        // warm EVM access state for any later transaction.
+        const IDENTICAL_TRANSACTION_COUNT = 5;
 
-        it("Test 3.1: sin & cos gas over [0°, 360°] with 1° resolution and repeated measurements", async function () {
+        after(function () {
+            printTransactionFailureSummary("Section 3", counts);
+        });
+
+        it("Test 3.1: sin & cos receipt gas over [0°, 360°] with duplicate transaction consistency checks", async function () {
             const startDeg = 0;
             const endDeg = 360;
 
@@ -381,9 +423,9 @@ describe("Trigonometry - Gas Growth Tests", function () {
                 let lastSinVal = 0;
                 let lastCosVal = 0;
 
-                for (let run = 1; run <= FULL_DOMAIN_REPEAT_COUNT; run++) {
+                for (let run = 1; run <= IDENTICAL_TRANSACTION_COUNT; run++) {
                     // ---- sin ----
-                    const sinGas = await measureTransactionGas(harness, "sin", [qx]);
+                    const sinGas = await measureTransactionGas(harness, "sin", [qx], counts);
                     const sinOut = await harness.sin(qx);
                     const sinVal = await fromQuad(harness, sinOut);
 
@@ -392,7 +434,7 @@ describe("Trigonometry - Gas Growth Tests", function () {
                     lastSinVal = sinVal;
 
                     // ---- cos ----
-                    const cosGas = await measureTransactionGas(harness, "cos", [qx]);
+                    const cosGas = await measureTransactionGas(harness, "cos", [qx], counts);
                     const cosOut = await harness.cos(qx);
                     const cosVal = await fromQuad(harness, cosOut);
 
@@ -418,7 +460,7 @@ describe("Trigonometry - Gas Growth Tests", function () {
                 printBlockRegular({
                     t,
                     method: "sin",
-                    explanation: `Average receipt gas at ${deg}° over ${FULL_DOMAIN_REPEAT_COUNT} repeated transactions (full-domain sweep; exact critical angles injected; result read separately by eth_call).`,
+                    explanation: `Arithmetic mean of ${IDENTICAL_TRANSACTION_COUNT} duplicate receipt transactions at ${deg}° (determinism check, not an independent sample; result read separately by eth_call).`,
                     gas: `${sinAvgGas}`,
                     executionModel: EXECUTION_MODEL,
                     executionPath: EXECUTION_PATH,
@@ -434,7 +476,7 @@ describe("Trigonometry - Gas Growth Tests", function () {
                 printBlockRegular({
                     t: `${t}-cos`,
                     method: "cos",
-                    explanation: `Average receipt gas at ${deg}° over ${FULL_DOMAIN_REPEAT_COUNT} repeated transactions (full-domain sweep; exact critical angles injected; result read separately by eth_call).`,
+                    explanation: `Arithmetic mean of ${IDENTICAL_TRANSACTION_COUNT} duplicate receipt transactions at ${deg}° (determinism check, not an independent sample; result read separately by eth_call).`,
                     gas: `${cosAvgGas}`,
                     executionModel: EXECUTION_MODEL,
                     executionPath: EXECUTION_PATH,
@@ -453,13 +495,14 @@ describe("Trigonometry - Gas Growth Tests", function () {
             const avgCos = totalCos / sampleCount;
 
             console.log("------------------------------------------------------------");
-            console.log("FULL DOMAIN RECEIPT-GAS SUMMARY");
+            console.log("FULL DOMAIN RECEIPT-GAS CONSISTENCY SUMMARY");
             console.log("------------------------------------------------------------");
             console.log(
-                `Execution model: ${EXECUTION_MODEL}; execution path: ${EXECUTION_PATH}; gas metric: ${GAS_MEASUREMENT}; result metric: ${RESULT_EXECUTION}. Input generation: Math.PI for general angles, exact quad constants for 0°, 90°, 180°, 270°, 360°. Each angle was evaluated in ${FULL_DOMAIN_REPEAT_COUNT} transactions and average receipt gas is reported.`
+                `Execution model: ${EXECUTION_MODEL}; execution path: ${EXECUTION_PATH}; gas metric: ${GAS_MEASUREMENT}; result metric: ${RESULT_EXECUTION}. Input generation: Math.PI for general angles, exact quad constants for 0°, 90°, 180°, 270°, 360°. Each angle used ${IDENTICAL_TRANSACTION_COUNT} separate, identical transactions; their arithmetic mean is a deterministic consistency check, not a statistical estimate. EVM warm-access state resets between transactions.`
             );
-            console.log(`sin -> avg: ${avgSin} | min: ${minSin} | max: ${maxSin}`);
-            console.log(`cos -> avg: ${avgCos} | min: ${minCos} | max: ${maxCos}`);
+            console.log(HARNESS_SCOPE);
+            console.log(`sin -> representative mean: ${avgSin} | min: ${minSin} | max: ${maxSin}`);
+            console.log(`cos -> representative mean: ${avgCos} | min: ${minCos} | max: ${maxCos}`);
         });
     });
 });

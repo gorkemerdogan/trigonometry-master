@@ -14,6 +14,35 @@ export interface Harness extends Contract {
 //  Transaction Gas Measurement Utilities
 // ------------------------------------------------------------
 
+export type TransactionFailureCounts = {
+    successful: number;
+    reverted: number;
+    outOfGas: number;
+    other: number;
+};
+
+export function createTransactionFailureCounts(): TransactionFailureCounts {
+    return {successful: 0, reverted: 0, outOfGas: 0, other: 0};
+}
+
+function recordTransactionFailure(error: unknown, counts: TransactionFailureCounts): void {
+    const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+    if (message.includes("out of gas") || message.includes("outofgas")) {
+        counts.outOfGas++;
+    } else if (message.includes("revert") || message.includes("execution reverted") || message.includes("failed with status")) {
+        counts.reverted++;
+    } else {
+        counts.other++;
+    }
+}
+
+/** Prints failures observed before they were rethrown by benchmark measurements. */
+export function printTransactionFailureSummary(label: string, counts: TransactionFailureCounts): void {
+    console.log(
+        `${label} transaction outcomes: successful=${counts.successful} | reverted=${counts.reverted} | out_of_gas=${counts.outOfGas} | other_failures=${counts.other}`
+    );
+}
+
 /**
  * @notice        Executes a transaction and returns the gas used by its receipt.
  * @dev           This measures `transaction_receipt_gas`; it is not an estimate. Failures
@@ -26,22 +55,29 @@ export interface Harness extends Contract {
 export async function measureTransactionGas(
     harness: Harness,
     method: string,
-    args: unknown[]
+    args: unknown[],
+    counts?: TransactionFailureCounts
 ): Promise<bigint> {
-    const data: string = harness.interface.encodeFunctionData(method, args);
-    const [signer]: Signer[] = await ethers.getSigners();
-    const to: string = await harness.getAddress();
-    const tx = await signer.sendTransaction({to, data});
-    const receipt = await tx.wait();
+    try {
+        const data: string = harness.interface.encodeFunctionData(method, args);
+        const [signer]: Signer[] = await ethers.getSigners();
+        const to: string = await harness.getAddress();
+        const tx = await signer.sendTransaction({to, data});
+        const receipt = await tx.wait();
 
-    if (receipt === null) {
-        throw new Error(`No transaction receipt for ${method}`);
-    }
-    if (receipt.status !== 1) {
-        throw new Error(`Transaction for ${method} failed with status ${receipt.status}`);
-    }
+        if (receipt === null) {
+            throw new Error(`No transaction receipt for ${method}`);
+        }
+        if (receipt.status !== 1) {
+            throw new Error(`Transaction for ${method} failed with status ${receipt.status}`);
+        }
 
-    return receipt.gasUsed;
+        if (counts) counts.successful++;
+        return receipt.gasUsed;
+    } catch (error) {
+        if (counts) recordTransactionFailure(error, counts);
+        throw error;
+    }
 }
 
 /**

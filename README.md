@@ -93,6 +93,14 @@ The library is built for modular integration and is suitable for systems followi
 
 The trigonometric functions are separated by logical responsibility into dedicated internal modules, improving maintainability, extensibility, and clarity of implementation.
 
+## Benchmark Methodology
+
+The accuracy suite reports `estimateGas` simulation values through `TrigonometryHarness` and obtains numerical outputs through a separate `eth_call`; its gas values are estimates, not transaction receipts. Repeating a deterministic pure call or estimate with the same input is a duplicate consistency check, not an independent statistical sample.
+
+The gas suite reports `transaction_receipt_gas` for the direct `TrigonometryHarness` path. It also reports a trivial `benchmarkIdentity(bytes16)` transaction with the same one-`bytes16` ABI argument shape as a separate calldata/intrinsic baseline; this baseline is never subtracted from trigonometric gas. Its duplicate transactions are separate EVM transactions, so warm-access state does not persist from one measurement to the next. Outputs remain separately checked with `eth_call`.
+
+Harness-direct receipt gas excludes `TrigonometryFacet`, Diamond fallback/delegatecall routing, deployment, `diamondCut` installation, and `MathLib` deployment. The focused production-path benchmark deploys a minimal Diamond with the trigonometry facet, reports those deployment and installation receipts separately, and compares four direct-harness calls with Diamond-routed calls. Those local measurements exclude optional facets and chain-specific conditions such as fee policy, so they are descriptive rather than a universal production-cost estimate.
+
 ## Intended Use Cases
 
 This library is suitable for projects involving:

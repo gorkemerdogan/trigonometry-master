@@ -638,7 +638,7 @@ describe("Trigonometry Library - Harness-Observable Accuracy Checks (1e-12 scale
     // 3) Difference Between sin(pi/4) and cos(pi/4) (30 repetitions)
     // ------------------------------------------------------------
 
-    it("should evaluate the difference between sin(pi/4) and cos(pi/4) over 30 repeated runs", async function () {
+    it("should evaluate the difference between sin(pi/4) and cos(pi/4) over 30 deterministic duplicate evaluations", async function () {
         const records: NumericRecord[] = [];
 
         for (let i = 0; i < NUM_CASES; i++) {
