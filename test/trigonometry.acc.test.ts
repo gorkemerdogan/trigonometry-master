@@ -44,24 +44,47 @@ type TrigonometryHarness = Contract & {
 const NUM_CASES = 30;
 const FIXED_SEED = "TRIG_MULTI_CASE_SEED_V1";
 
-// Contract-side scaling.
-// The harness uses SCALE = 1e18 for fromFloat / toFloat.
+// Contract-side scaling used by TrigonometryHarness.fromFloat/toFloat.
 const SCALE = 10n ** 12n;
+const SCALE_NUMBER = Number(SCALE);
 
 // Useful numeric constants in the same scaled representation.
-const PI_SCALED = BigInt(Math.round(Math.PI * 1e18));
+const PI_SCALED = BigInt(Math.round(Math.PI * SCALE_NUMBER));
 const HALF_PI_SCALED = PI_SCALED / 2n;
 const QUARTER_PI_SCALED = PI_SCALED / 4n;
 const TWO_PI_SCALED = PI_SCALED * 2n;
+
+// Accuracy is observable only to 1e-12 through the current harness conversion.
+// Relative tolerances are encoded in SCALE units (100 = 1e-10).
+const IDENTITY_ABS_TOL = 2n;
+const DIRECT_ABS_TOL = 2n;
+const INVERSE_ABS_TOL = 5n;
+const RATIO_ABS_TOL = 10n;
+const ROUND_TRIP_ABS_TOL = 10n;
+const DEFAULT_REL_TOL = 100n; // 1e-10.
+const NEAR_ZERO_THRESHOLD = 1_000n; // 1e-9; use absolute error below this.
+const POLE_EXCLUSION = 10_000_000_000n; // 0.01 radians.
 
 // ------------------------------------------------------------
 // Helper Types
 // ------------------------------------------------------------
 
 type NumericRecord = {
+    actual: bigint;
+    expected: bigint;
     absError: bigint;
     relErrorScaled?: bigint;
+    expectedAbs: bigint;
     gas: bigint;
+    caseLabel: string;
+};
+
+type AccuracyGroup = {
+    name: string;
+    records: NumericRecord[];
+    absTolerance: bigint;
+    relTolerance?: bigint;
+    nearZeroThreshold?: bigint;
 };
 
 type BoolRecord = {
@@ -118,7 +141,10 @@ function formatScaledInt(v: bigint, decimals = 18): string {
 }
 
 function toScaledFromNumber(x: number): bigint {
-    return BigInt(Math.round(x * 1e18));
+    if (!Number.isFinite(x)) {
+        throw new Error(`Reference oracle returned a non-finite value: ${x}`);
+    }
+    return BigInt(Math.round(x * SCALE_NUMBER));
 }
 
 function scaledAbsError(actual: bigint, expected: bigint): bigint {
@@ -136,6 +162,62 @@ function scaledRelError(actual: bigint, expected: bigint): bigint | undefined {
 
     const num = absBigInt(actual - expected);
     return (num * SCALE) / den;
+}
+
+function numericRecord(
+    actual: bigint,
+    expected: bigint,
+    gas: bigint,
+    caseLabel: string
+): NumericRecord {
+    return {
+        actual,
+        expected,
+        absError: scaledAbsError(actual, expected),
+        relErrorScaled: scaledRelError(actual, expected),
+        expectedAbs: absBigInt(expected),
+        gas,
+        caseLabel,
+    };
+}
+
+function assertAccuracyGroups(groups: AccuracyGroup[]): void {
+    const failures: string[] = [];
+
+    for (const group of groups) {
+        const nearZeroThreshold = group.nearZeroThreshold ?? NEAR_ZERO_THRESHOLD;
+        const failed = group.records.filter((record) => {
+            if (record.absError <= group.absTolerance) return false;
+            if (record.expectedAbs <= nearZeroThreshold) return true;
+            if (group.relTolerance === undefined || record.relErrorScaled === undefined) return true;
+            return record.relErrorScaled > group.relTolerance;
+        });
+
+        if (failed.length === 0) continue;
+
+        const worstAbs = failed.reduce((a, b) => (a.absError >= b.absError ? a : b));
+        const worstRelCandidates = failed.filter(
+            (record): record is NumericRecord & { relErrorScaled: bigint } =>
+                record.relErrorScaled !== undefined
+        );
+        const worstRel = worstRelCandidates.length === 0
+            ? undefined
+            : worstRelCandidates.reduce((a, b) =>
+                a.relErrorScaled >= b.relErrorScaled ? a : b
+            );
+
+        failures.push(
+            `${group.name}: ${failed.length}/${group.records.length} cases exceeded tolerance; ` +
+            `max abs=${formatScaledInt(worstAbs.absError, 12)} at ${worstAbs.caseLabel} ` +
+            `(actual=${formatScaledInt(worstAbs.actual, 12)}, ` +
+            `expected=${formatScaledInt(worstAbs.expected, 12)})` +
+            (worstRel
+                ? `; max rel=${formatScaledInt(worstRel.relErrorScaled, 12)} at ${worstRel.caseLabel}`
+                : "")
+        );
+    }
+
+    expect(failures, failures.join("\n")).to.deep.equal([]);
 }
 
 // ------------------------------------------------------------
@@ -195,7 +277,7 @@ function randomAtanInputScaled(label: string, index: number): bigint {
  * Chosen domain: [-3pi/2 + margin, 3pi/2 - margin], excluding points near pi/2 + k*pi.
  */
 function randomValidTanInputScaled(index: number): bigint {
-    const margin = 50_000_000n;
+    const margin = POLE_EXCLUSION;
     while (true) {
         const x = pseudoRandomScaledInRange(
             "tan-valid",
@@ -207,7 +289,7 @@ function randomValidTanInputScaled(index: number): bigint {
         let nearSingularity = false;
         for (let k = -3; k <= 3; k++) {
             const singular = HALF_PI_SCALED + BigInt(k) * PI_SCALED;
-            if (absBigInt(x - singular) < 1_000_000_000n) {
+            if (absBigInt(x - singular) < POLE_EXCLUSION) {
                 nearSingularity = true;
                 break;
             }
@@ -222,7 +304,7 @@ function randomValidTanInputScaled(index: number): bigint {
  * Generates deterministic valid inputs for cot, staying away from k*pi.
  */
 function randomValidCotInputScaled(index: number): bigint {
-    const margin = 50_000_000n;
+    const margin = POLE_EXCLUSION;
     while (true) {
         const x = pseudoRandomScaledInRange(
             "cot-valid",
@@ -234,7 +316,7 @@ function randomValidCotInputScaled(index: number): bigint {
         let nearSingularity = false;
         for (let k = -3; k <= 3; k++) {
             const singular = BigInt(k) * PI_SCALED;
-            if (absBigInt(x - singular) < 1_000_000_000n) {
+            if (absBigInt(x - singular) < POLE_EXCLUSION) {
                 nearSingularity = true;
                 break;
             }
@@ -256,6 +338,16 @@ async function qScaled(harness: TrigonometryHarness, scaledValue: bigint): Promi
 async function outScaled(harness: TrigonometryHarness, q: string): Promise<bigint> {
     const raw = await harness.toFloat(q);
     return asBigInt(raw);
+}
+
+async function expectFiniteQuad(
+    harness: TrigonometryHarness,
+    q: string,
+    caseLabel: string
+): Promise<void> {
+    expect(await harness.isNaN(q), `${caseLabel} returned NaN`).to.equal(false);
+    const exponent = (BigInt(q) >> 112n) & 0x7fffn;
+    expect(exponent, `${caseLabel} returned infinity`).to.not.equal(0x7fffn);
 }
 
 async function estimateGasFor(
@@ -309,10 +401,10 @@ function printNumericSummary(title: string, method: string, records: NumericReco
     console.log("============================================================");
     console.log(`Method             : ${method}`);
     console.log(`Number of Tests    : ${records.length}`);
-    console.log(`Average Abs. Error : ${formatScaledInt(avgBigInt(absErrors))}`);
-    console.log(`Max Abs. Error     : ${formatScaledInt(maxBigInt(absErrors))}`);
+    console.log(`Average Abs. Error : ${formatScaledInt(avgBigInt(absErrors), 12)}`);
+    console.log(`Max Abs. Error     : ${formatScaledInt(maxBigInt(absErrors), 12)}`);
     console.log(
-        `Average Rel. Error : ${relErrors.length > 0 ? formatScaledInt(avgBigInt(relErrors)) : "N/A"}`
+        `Average Rel. Error : ${relErrors.length > 0 ? formatScaledInt(avgBigInt(relErrors), 12) : "N/A"}`
     );
     console.log(`Min Gas            : ${minBigInt(gasValues).toString()}`);
     console.log(`Average Gas        : ${avgBigInt(gasValues).toString()}`);
@@ -386,19 +478,19 @@ describe("Trigonometry Library - Multi-Case Accuracy Benchmarks", function () {
 
                 const sPos = await harness.sin(qx);
                 const sNeg = await harness.sin(qNegX);
+                await expectFiniteQuad(harness, sPos, `sin symmetry positive case ${i}`);
+                await expectFiniteQuad(harness, sNeg, `sin symmetry negative case ${i}`);
 
                 const sPosScaled = await outScaled(harness, sPos);
                 const sNegScaled = await outScaled(harness, sNeg);
 
                 const propertyActual = sNegScaled + sPosScaled;
-                const absErr = absBigInt(propertyActual);
-                const relErr = scaledRelError(propertyActual, 0n);
-
-                sinRecords.push({
-                    absError: absErr,
-                    relErrorScaled: relErr,
-                    gas: gas1 + gas2,
-                });
+                sinRecords.push(numericRecord(
+                    propertyActual,
+                    0n,
+                    gas1 + gas2,
+                    `x=${formatScaledInt(xScaled, 12)}`
+                ));
             }
 
             {
@@ -407,19 +499,19 @@ describe("Trigonometry Library - Multi-Case Accuracy Benchmarks", function () {
 
                 const cPos = await harness.cos(qx);
                 const cNeg = await harness.cos(qNegX);
+                await expectFiniteQuad(harness, cPos, `cos symmetry positive case ${i}`);
+                await expectFiniteQuad(harness, cNeg, `cos symmetry negative case ${i}`);
 
                 const cPosScaled = await outScaled(harness, cPos);
                 const cNegScaled = await outScaled(harness, cNeg);
 
                 const propertyActual = cNegScaled - cPosScaled;
-                const absErr = absBigInt(propertyActual);
-                const relErr = scaledRelError(propertyActual, 0n);
-
-                cosRecords.push({
-                    absError: absErr,
-                    relErrorScaled: relErr,
-                    gas: gas1 + gas2,
-                });
+                cosRecords.push(numericRecord(
+                    propertyActual,
+                    0n,
+                    gas1 + gas2,
+                    `x=${formatScaledInt(xScaled, 12)}`
+                ));
             }
 
             {
@@ -432,19 +524,19 @@ describe("Trigonometry Library - Multi-Case Accuracy Benchmarks", function () {
 
                 const aPos = await harness.atan(qxa);
                 const aNeg = await harness.atan(qNegXa);
+                await expectFiniteQuad(harness, aPos, `atan symmetry positive case ${i}`);
+                await expectFiniteQuad(harness, aNeg, `atan symmetry negative case ${i}`);
 
                 const aPosScaled = await outScaled(harness, aPos);
                 const aNegScaled = await outScaled(harness, aNeg);
 
                 const propertyActual = aNegScaled + aPosScaled;
-                const absErr = absBigInt(propertyActual);
-                const relErr = scaledRelError(propertyActual, 0n);
-
-                atanRecords.push({
-                    absError: absErr,
-                    relErrorScaled: relErr,
-                    gas: gas1 + gas2,
-                });
+                atanRecords.push(numericRecord(
+                    propertyActual,
+                    0n,
+                    gas1 + gas2,
+                    `x=${formatScaledInt(xAtanScaled, 12)}`
+                ));
             }
         }
 
@@ -452,9 +544,14 @@ describe("Trigonometry Library - Multi-Case Accuracy Benchmarks", function () {
         printNumericSummary("Symmetry Accuracy Results", "cos(-x) = cos(x)", cosRecords);
         printNumericSummary("Symmetry Accuracy Results", "atan(-x) = -atan(x)", atanRecords);
 
-        expect(sinRecords.length).to.equal(NUM_CASES);
-        expect(cosRecords.length).to.equal(NUM_CASES);
-        expect(atanRecords.length).to.equal(NUM_CASES);
+        expect(sinRecords).to.have.length(NUM_CASES);
+        expect(cosRecords).to.have.length(NUM_CASES);
+        expect(atanRecords).to.have.length(NUM_CASES);
+        assertAccuracyGroups([
+            { name: "sin odd symmetry", records: sinRecords, absTolerance: IDENTITY_ABS_TOL },
+            { name: "cos even symmetry", records: cosRecords, absTolerance: IDENTITY_ABS_TOL },
+            { name: "atan odd symmetry", records: atanRecords, absTolerance: IDENTITY_ABS_TOL },
+        ]);
     });
 
     // ------------------------------------------------------------
@@ -478,18 +575,18 @@ describe("Trigonometry Library - Multi-Case Accuracy Benchmarks", function () {
 
                 const s1 = await harness.sin(qx);
                 const s2 = await harness.sin(qxPlusTwoPi);
+                await expectFiniteQuad(harness, s1, `sin periodicity base case ${i}`);
+                await expectFiniteQuad(harness, s2, `sin periodicity shifted case ${i}`);
 
                 const s1Scaled = await outScaled(harness, s1);
                 const s2Scaled = await outScaled(harness, s2);
 
-                const absErr = absBigInt(s2Scaled - s1Scaled);
-                const relErr = scaledRelError(s2Scaled, s1Scaled);
-
-                sinRecords.push({
-                    absError: absErr,
-                    relErrorScaled: relErr,
-                    gas: gas1 + gas2,
-                });
+                sinRecords.push(numericRecord(
+                    s2Scaled,
+                    s1Scaled,
+                    gas1 + gas2,
+                    `x=${formatScaledInt(xScaled, 12)}`
+                ));
             }
 
             {
@@ -498,26 +595,30 @@ describe("Trigonometry Library - Multi-Case Accuracy Benchmarks", function () {
 
                 const c1 = await harness.cos(qx);
                 const c2 = await harness.cos(qxPlusTwoPi);
+                await expectFiniteQuad(harness, c1, `cos periodicity base case ${i}`);
+                await expectFiniteQuad(harness, c2, `cos periodicity shifted case ${i}`);
 
                 const c1Scaled = await outScaled(harness, c1);
                 const c2Scaled = await outScaled(harness, c2);
 
-                const absErr = absBigInt(c2Scaled - c1Scaled);
-                const relErr = scaledRelError(c2Scaled, c1Scaled);
-
-                cosRecords.push({
-                    absError: absErr,
-                    relErrorScaled: relErr,
-                    gas: gas1 + gas2,
-                });
+                cosRecords.push(numericRecord(
+                    c2Scaled,
+                    c1Scaled,
+                    gas1 + gas2,
+                    `x=${formatScaledInt(xScaled, 12)}`
+                ));
             }
         }
 
         printNumericSummary("Periodicity Accuracy Results", "sin(x + 2pi) = sin(x)", sinRecords);
         printNumericSummary("Periodicity Accuracy Results", "cos(x + 2pi) = cos(x)", cosRecords);
 
-        expect(sinRecords.length).to.equal(NUM_CASES);
-        expect(cosRecords.length).to.equal(NUM_CASES);
+        expect(sinRecords).to.have.length(NUM_CASES);
+        expect(cosRecords).to.have.length(NUM_CASES);
+        assertAccuracyGroups([
+            { name: "sin periodicity", records: sinRecords, absTolerance: IDENTITY_ABS_TOL },
+            { name: "cos periodicity", records: cosRecords, absTolerance: IDENTITY_ABS_TOL },
+        ]);
     });
 
     // ------------------------------------------------------------
@@ -533,19 +634,19 @@ describe("Trigonometry Library - Multi-Case Accuracy Benchmarks", function () {
 
             const s = await harness.sin(QQUARTER_PI);
             const c = await harness.cos(QQUARTER_PI);
+            await expectFiniteQuad(harness, s, "sin(pi/4)");
+            await expectFiniteQuad(harness, c, "cos(pi/4)");
 
             const sScaled = await outScaled(harness, s);
             const cScaled = await outScaled(harness, c);
 
             const propertyActual = sScaled - cScaled;
-            const absErr = absBigInt(propertyActual);
-            const relErr = scaledRelError(propertyActual, 0n);
-
-            records.push({
-                absError: absErr,
-                relErrorScaled: relErr,
-                gas: gasSin + gasCos,
-            });
+            records.push(numericRecord(
+                propertyActual,
+                0n,
+                gasSin + gasCos,
+                "x=pi/4"
+            ));
         }
 
         printNumericSummary(
@@ -554,7 +655,10 @@ describe("Trigonometry Library - Multi-Case Accuracy Benchmarks", function () {
             records
         );
 
-        expect(records.length).to.equal(NUM_CASES);
+        expect(records).to.have.length(NUM_CASES);
+        assertAccuracyGroups([
+            { name: "sin(pi/4) equals cos(pi/4)", records, absTolerance: IDENTITY_ABS_TOL },
+        ]);
     });
 
     // ------------------------------------------------------------
@@ -577,15 +681,17 @@ describe("Trigonometry Library - Multi-Case Accuracy Benchmarks", function () {
 
                 const gas = await estimateGasFor(harness, "sin", [qx]);
                 const out = await harness.sin(qx);
+                await expectFiniteQuad(harness, out, `sin case ${i}, x=${formatScaledInt(xScaled, 12)}`);
 
                 const actualScaled = await outScaled(harness, out);
-                const expectedScaled = toScaledFromNumber(Math.sin(Number(xScaled) / 1e18));
+                const expectedScaled = toScaledFromNumber(Math.sin(Number(xScaled) / SCALE_NUMBER));
 
-                sinRecords.push({
-                    absError: scaledAbsError(actualScaled, expectedScaled),
-                    relErrorScaled: scaledRelError(actualScaled, expectedScaled),
+                sinRecords.push(numericRecord(
+                    actualScaled,
+                    expectedScaled,
                     gas,
-                });
+                    `case ${i}, x=${formatScaledInt(xScaled, 12)}`
+                ));
             }
 
             {
@@ -594,15 +700,17 @@ describe("Trigonometry Library - Multi-Case Accuracy Benchmarks", function () {
 
                 const gas = await estimateGasFor(harness, "cos", [qx]);
                 const out = await harness.cos(qx);
+                await expectFiniteQuad(harness, out, `cos case ${i}, x=${formatScaledInt(xScaled, 12)}`);
 
                 const actualScaled = await outScaled(harness, out);
-                const expectedScaled = toScaledFromNumber(Math.cos(Number(xScaled) / 1e18));
+                const expectedScaled = toScaledFromNumber(Math.cos(Number(xScaled) / SCALE_NUMBER));
 
-                cosRecords.push({
-                    absError: scaledAbsError(actualScaled, expectedScaled),
-                    relErrorScaled: scaledRelError(actualScaled, expectedScaled),
+                cosRecords.push(numericRecord(
+                    actualScaled,
+                    expectedScaled,
                     gas,
-                });
+                    `case ${i}, x=${formatScaledInt(xScaled, 12)}`
+                ));
             }
 
             {
@@ -611,18 +719,17 @@ describe("Trigonometry Library - Multi-Case Accuracy Benchmarks", function () {
 
                 const gas = await estimateGasFor(harness, "tan", [qx]);
                 const out = await harness.tan(qx);
-                const isNaN = await harness.isNaN(out);
-
-                expect(isNaN).to.equal(false);
+                await expectFiniteQuad(harness, out, `tan case ${i}, x=${formatScaledInt(xScaled, 12)}`);
 
                 const actualScaled = await outScaled(harness, out);
-                const expectedScaled = toScaledFromNumber(Math.tan(Number(xScaled) / 1e18));
+                const expectedScaled = toScaledFromNumber(Math.tan(Number(xScaled) / SCALE_NUMBER));
 
-                tanRecords.push({
-                    absError: scaledAbsError(actualScaled, expectedScaled),
-                    relErrorScaled: scaledRelError(actualScaled, expectedScaled),
+                tanRecords.push(numericRecord(
+                    actualScaled,
+                    expectedScaled,
                     gas,
-                });
+                    `case ${i}, x=${formatScaledInt(xScaled, 12)}`
+                ));
             }
 
             {
@@ -631,19 +738,18 @@ describe("Trigonometry Library - Multi-Case Accuracy Benchmarks", function () {
 
                 const gas = await estimateGasFor(harness, "cot", [qx]);
                 const out = await harness.cot(qx);
-                const isNaN = await harness.isNaN(out);
-
-                expect(isNaN).to.equal(false);
+                await expectFiniteQuad(harness, out, `cot case ${i}, x=${formatScaledInt(xScaled, 12)}`);
 
                 const actualScaled = await outScaled(harness, out);
-                const expected = 1 / Math.tan(Number(xScaled) / 1e18);
+                const expected = 1 / Math.tan(Number(xScaled) / SCALE_NUMBER);
                 const expectedScaled = toScaledFromNumber(expected);
 
-                cotRecords.push({
-                    absError: scaledAbsError(actualScaled, expectedScaled),
-                    relErrorScaled: scaledRelError(actualScaled, expectedScaled),
+                cotRecords.push(numericRecord(
+                    actualScaled,
+                    expectedScaled,
                     gas,
-                });
+                    `case ${i}, x=${formatScaledInt(xScaled, 12)}`
+                ));
             }
 
             {
@@ -652,18 +758,17 @@ describe("Trigonometry Library - Multi-Case Accuracy Benchmarks", function () {
 
                 const gas = await estimateGasFor(harness, "asin", [qx]);
                 const out = await harness.asin(qx);
-                const isNaN = await harness.isNaN(out);
-
-                expect(isNaN).to.equal(false);
+                await expectFiniteQuad(harness, out, `asin case ${i}, x=${formatScaledInt(xScaled, 12)}`);
 
                 const actualScaled = await outScaled(harness, out);
-                const expectedScaled = toScaledFromNumber(Math.asin(Number(xScaled) / 1e18));
+                const expectedScaled = toScaledFromNumber(Math.asin(Number(xScaled) / SCALE_NUMBER));
 
-                asinRecords.push({
-                    absError: scaledAbsError(actualScaled, expectedScaled),
-                    relErrorScaled: scaledRelError(actualScaled, expectedScaled),
+                asinRecords.push(numericRecord(
+                    actualScaled,
+                    expectedScaled,
                     gas,
-                });
+                    `case ${i}, x=${formatScaledInt(xScaled, 12)}`
+                ));
             }
 
             {
@@ -672,18 +777,17 @@ describe("Trigonometry Library - Multi-Case Accuracy Benchmarks", function () {
 
                 const gas = await estimateGasFor(harness, "acos", [qx]);
                 const out = await harness.acos(qx);
-                const isNaN = await harness.isNaN(out);
-
-                expect(isNaN).to.equal(false);
+                await expectFiniteQuad(harness, out, `acos case ${i}, x=${formatScaledInt(xScaled, 12)}`);
 
                 const actualScaled = await outScaled(harness, out);
-                const expectedScaled = toScaledFromNumber(Math.acos(Number(xScaled) / 1e18));
+                const expectedScaled = toScaledFromNumber(Math.acos(Number(xScaled) / SCALE_NUMBER));
 
-                acosRecords.push({
-                    absError: scaledAbsError(actualScaled, expectedScaled),
-                    relErrorScaled: scaledRelError(actualScaled, expectedScaled),
+                acosRecords.push(numericRecord(
+                    actualScaled,
+                    expectedScaled,
                     gas,
-                });
+                    `case ${i}, x=${formatScaledInt(xScaled, 12)}`
+                ));
             }
 
             {
@@ -692,15 +796,17 @@ describe("Trigonometry Library - Multi-Case Accuracy Benchmarks", function () {
 
                 const gas = await estimateGasFor(harness, "atan", [qx]);
                 const out = await harness.atan(qx);
+                await expectFiniteQuad(harness, out, `atan case ${i}, x=${formatScaledInt(xScaled, 12)}`);
 
                 const actualScaled = await outScaled(harness, out);
-                const expectedScaled = toScaledFromNumber(Math.atan(Number(xScaled) / 1e18));
+                const expectedScaled = toScaledFromNumber(Math.atan(Number(xScaled) / SCALE_NUMBER));
 
-                atanRecords.push({
-                    absError: scaledAbsError(actualScaled, expectedScaled),
-                    relErrorScaled: scaledRelError(actualScaled, expectedScaled),
+                atanRecords.push(numericRecord(
+                    actualScaled,
+                    expectedScaled,
                     gas,
-                });
+                    `case ${i}, x=${formatScaledInt(xScaled, 12)}`
+                ));
             }
         }
 
@@ -712,13 +818,47 @@ describe("Trigonometry Library - Multi-Case Accuracy Benchmarks", function () {
         printNumericSummary("Random Accuracy Results", "acos(x)", acosRecords);
         printNumericSummary("Random Accuracy Results", "atan(x)", atanRecords);
 
-        expect(sinRecords.length).to.equal(NUM_CASES);
-        expect(cosRecords.length).to.equal(NUM_CASES);
-        expect(tanRecords.length).to.equal(NUM_CASES);
-        expect(cotRecords.length).to.equal(NUM_CASES);
-        expect(asinRecords.length).to.equal(NUM_CASES);
-        expect(acosRecords.length).to.equal(NUM_CASES);
-        expect(atanRecords.length).to.equal(NUM_CASES);
+        expect(sinRecords).to.have.length(NUM_CASES);
+        expect(cosRecords).to.have.length(NUM_CASES);
+        expect(tanRecords).to.have.length(NUM_CASES);
+        expect(cotRecords).to.have.length(NUM_CASES);
+        expect(asinRecords).to.have.length(NUM_CASES);
+        expect(acosRecords).to.have.length(NUM_CASES);
+        expect(atanRecords).to.have.length(NUM_CASES);
+        assertAccuracyGroups([
+            { name: "sin oracle accuracy", records: sinRecords, absTolerance: DIRECT_ABS_TOL },
+            { name: "cos oracle accuracy", records: cosRecords, absTolerance: DIRECT_ABS_TOL },
+            {
+                name: "tan oracle accuracy (inputs at least 0.01 rad from poles)",
+                records: tanRecords,
+                absTolerance: RATIO_ABS_TOL,
+                relTolerance: DEFAULT_REL_TOL,
+            },
+            {
+                name: "cot oracle accuracy (inputs at least 0.01 rad from poles)",
+                records: cotRecords,
+                absTolerance: RATIO_ABS_TOL,
+                relTolerance: DEFAULT_REL_TOL,
+            },
+            {
+                name: "asin oracle accuracy",
+                records: asinRecords,
+                absTolerance: INVERSE_ABS_TOL,
+                relTolerance: DEFAULT_REL_TOL,
+            },
+            {
+                name: "acos oracle accuracy",
+                records: acosRecords,
+                absTolerance: INVERSE_ABS_TOL,
+                relTolerance: DEFAULT_REL_TOL,
+            },
+            {
+                name: "atan oracle accuracy",
+                records: atanRecords,
+                absTolerance: INVERSE_ABS_TOL,
+                relTolerance: DEFAULT_REL_TOL,
+            },
+        ]);
     });
 
     // ------------------------------------------------------------
@@ -742,17 +882,20 @@ describe("Trigonometry Library - Multi-Case Accuracy Benchmarks", function () {
 
                 const gas1 = await estimateGasFor(harness, "sin", [qx]);
                 const s = await harness.sin(qx);
+                await expectFiniteQuad(harness, s, `asin(sin(x)) sine stage case ${i}`);
 
                 const gas2 = await estimateGasFor(harness, "asin", [s]);
                 const recovered = await harness.asin(s);
+                await expectFiniteQuad(harness, recovered, `asin(sin(x)) case ${i}`);
 
                 const recoveredScaled = await outScaled(harness, recovered);
 
-                asinSinRecords.push({
-                    absError: scaledAbsError(recoveredScaled, xScaled),
-                    relErrorScaled: scaledRelError(recoveredScaled, xScaled),
-                    gas: gas1 + gas2,
-                });
+                asinSinRecords.push(numericRecord(
+                    recoveredScaled,
+                    xScaled,
+                    gas1 + gas2,
+                    `case ${i}, x=${formatScaledInt(xScaled, 12)}`
+                ));
             }
 
             {
@@ -766,17 +909,20 @@ describe("Trigonometry Library - Multi-Case Accuracy Benchmarks", function () {
 
                 const gas1 = await estimateGasFor(harness, "cos", [qx]);
                 const c = await harness.cos(qx);
+                await expectFiniteQuad(harness, c, `acos(cos(x)) cosine stage case ${i}`);
 
                 const gas2 = await estimateGasFor(harness, "acos", [c]);
                 const recovered = await harness.acos(c);
+                await expectFiniteQuad(harness, recovered, `acos(cos(x)) case ${i}`);
 
                 const recoveredScaled = await outScaled(harness, recovered);
 
-                acosCosRecords.push({
-                    absError: scaledAbsError(recoveredScaled, xScaled),
-                    relErrorScaled: scaledRelError(recoveredScaled, xScaled),
-                    gas: gas1 + gas2,
-                });
+                acosCosRecords.push(numericRecord(
+                    recoveredScaled,
+                    xScaled,
+                    gas1 + gas2,
+                    `case ${i}, x=${formatScaledInt(xScaled, 12)}`
+                ));
             }
 
             {
@@ -785,17 +931,20 @@ describe("Trigonometry Library - Multi-Case Accuracy Benchmarks", function () {
 
                 const gas1 = await estimateGasFor(harness, "atan", [qx]);
                 const a = await harness.atan(qx);
+                await expectFiniteQuad(harness, a, `tan(atan(x)) atan stage case ${i}`);
 
                 const gas2 = await estimateGasFor(harness, "tan", [a]);
                 const recovered = await harness.tan(a);
+                await expectFiniteQuad(harness, recovered, `tan(atan(x)) case ${i}`);
 
                 const recoveredScaled = await outScaled(harness, recovered);
 
-                tanAtanRecords.push({
-                    absError: scaledAbsError(recoveredScaled, xScaled),
-                    relErrorScaled: scaledRelError(recoveredScaled, xScaled),
-                    gas: gas1 + gas2,
-                });
+                tanAtanRecords.push(numericRecord(
+                    recoveredScaled,
+                    xScaled,
+                    gas1 + gas2,
+                    `case ${i}, x=${formatScaledInt(xScaled, 12)}`
+                ));
             }
         }
 
@@ -803,9 +952,29 @@ describe("Trigonometry Library - Multi-Case Accuracy Benchmarks", function () {
         printNumericSummary("Consistency Accuracy Results", "acos(cos(x)) ≈ x", acosCosRecords);
         printNumericSummary("Consistency Accuracy Results", "tan(atan(x)) ≈ x", tanAtanRecords);
 
-        expect(asinSinRecords.length).to.equal(NUM_CASES);
-        expect(acosCosRecords.length).to.equal(NUM_CASES);
-        expect(tanAtanRecords.length).to.equal(NUM_CASES);
+        expect(asinSinRecords).to.have.length(NUM_CASES);
+        expect(acosCosRecords).to.have.length(NUM_CASES);
+        expect(tanAtanRecords).to.have.length(NUM_CASES);
+        assertAccuracyGroups([
+            {
+                name: "asin(sin(x)) principal-branch round trip",
+                records: asinSinRecords,
+                absTolerance: ROUND_TRIP_ABS_TOL,
+                relTolerance: DEFAULT_REL_TOL,
+            },
+            {
+                name: "acos(cos(x)) principal-branch round trip",
+                records: acosCosRecords,
+                absTolerance: ROUND_TRIP_ABS_TOL,
+                relTolerance: DEFAULT_REL_TOL,
+            },
+            {
+                name: "tan(atan(x)) round trip",
+                records: tanAtanRecords,
+                absTolerance: ROUND_TRIP_ABS_TOL,
+                relTolerance: DEFAULT_REL_TOL,
+            },
+        ]);
     });
 
     // ------------------------------------------------------------
@@ -849,5 +1018,34 @@ describe("Trigonometry Library - Multi-Case Accuracy Benchmarks", function () {
 
         expect(tanRecords.every((r) => r.ok)).to.equal(true);
         expect(cotRecords.every((r) => r.ok)).to.equal(true);
+    });
+
+    it("should classify inverse-function domain boundaries and invalid inputs explicitly", async function () {
+        const one = await qScaled(harness, SCALE);
+        const negativeOne = await qScaled(harness, -SCALE);
+        const aboveOne = await qScaled(harness, SCALE + 1n);
+        const belowNegativeOne = await qScaled(harness, -SCALE - 1n);
+
+        for (const [label, input] of [["+1", one], ["-1", negativeOne]] as const) {
+            await expectFiniteQuad(harness, await harness.asin(input), `asin(${label})`);
+            await expectFiniteQuad(harness, await harness.acos(input), `acos(${label})`);
+        }
+
+        const invalidCases = [
+            { label: "asin(1 + 1e-12)", method: "asin" as const, input: aboveOne },
+            { label: "asin(-1 - 1e-12)", method: "asin" as const, input: belowNegativeOne },
+            { label: "acos(1 + 1e-12)", method: "acos" as const, input: aboveOne },
+            { label: "acos(-1 - 1e-12)", method: "acos" as const, input: belowNegativeOne },
+        ];
+
+        for (const invalidCase of invalidCases) {
+            const output = invalidCase.method === "asin"
+                ? await harness.asin(invalidCase.input)
+                : await harness.acos(invalidCase.input);
+            expect(
+                await harness.isNaN(output),
+                `${invalidCase.label} must be classified as outside the supported domain`
+            ).to.equal(true);
+        }
     });
 });
