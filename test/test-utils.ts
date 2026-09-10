@@ -11,62 +11,58 @@ export interface Harness extends Contract {
 }
 
 // ------------------------------------------------------------
-//  Gas Estimation Utilities
+//  Transaction Gas Measurement Utilities
 // ------------------------------------------------------------
 
 /**
- * @notify        Executes a transaction to touch the gas and confirms it. Reverts are caught and ignored.
+ * @notice        Executes a transaction and returns the gas used by its receipt.
+ * @dev           This measures `transaction_receipt_gas`; it is not an estimate. Failures
+ *                intentionally propagate so benchmark samples cannot silently omit reverts.
  * @param harness The contract harness instance.
  * @param method  The name of the contract method to call.
  * @param args    The arguments for the contract method.
+ * @returns       Gas used by the mined transaction receipt.
  */
-export async function touchGas(harness: Harness, method: string, args: any[]): Promise<void> {
-    try {
-        const data: string = harness.interface.encodeFunctionData(method, args);
-        // Get the default signer, assuming it's correctly configured in the Ethers environment
-        const [signer]: Signer[] = await ethers.getSigners();
-        const to: string = await harness.getAddress();
+export async function measureTransactionGas(
+    harness: Harness,
+    method: string,
+    args: unknown[]
+): Promise<bigint> {
+    const data: string = harness.interface.encodeFunctionData(method, args);
+    const [signer]: Signer[] = await ethers.getSigners();
+    const to: string = await harness.getAddress();
+    const tx = await signer.sendTransaction({to, data});
+    const receipt = await tx.wait();
 
-        // Send a transaction with minimal configuration
-        const tx = await signer.sendTransaction({to, data});
-        
-        // Wait for the transaction to be mined for a reliable touch
-        await tx.wait();
-    } catch (error) {
-        // Log the error for debugging
-        console.warn(`touchGas failed for ${method}:`, error instanceof Error ? error.message : error);        
+    if (receipt === null) {
+        throw new Error(`No transaction receipt for ${method}`);
     }
+    if (receipt.status !== 1) {
+        throw new Error(`Transaction for ${method} failed with status ${receipt.status}`);
+    }
+
+    return receipt.gasUsed;
 }
 
 /**
- * @notify        Estimates the gas cost for a given contract method call.
- *                Prioritizes the contract's built-in estimateGas function, then falls back to a raw transaction estimation.
+ * @notice        Estimates gas for a transaction simulation.
+ * @dev           This returns an `estimateGas` result, not receipt gas. Failures intentionally
+ *                propagate to the caller instead of being represented as a string value.
  * @param harness Contract harness instance.
  * @param method  Name of the contract method to call.
  * @param args    Arguments for the contract method.
- * @returns       Estimated gas as a string, or the string "revert" if estimation fails.
+ * @returns       Estimated transaction gas.
  */
-export async function estimateGas(harness: Harness, method: string, args: any[]): Promise<string> {
-    try {
-        // Try built-in estimateGas method on the contract
-        const contractMethod = harness[method];
-        if (contractMethod && contractMethod.estimateGas) {
-            const gasBigInt: bigint = await contractMethod.estimateGas(...args);
-            return gasBigInt.toString();
-        }
-
-        // Fallback to raw signer.estimateGas
-        const data: string = harness.interface.encodeFunctionData(method, args);
-        const [signer]: Signer[] = await ethers.getSigners();
-        const to: string = await harness.getAddress();
-        
-        const gasBigInt: bigint = await signer.estimateGas({ to, data });
-        return gasBigInt.toString();
-
-    } catch (error) {
-        // Return a specific string if estimation fails
-        return "revert";
+export async function estimateGas(harness: Harness, method: string, args: unknown[]): Promise<bigint> {
+    const contractMethod = harness[method];
+    if (contractMethod && contractMethod.estimateGas) {
+        return await contractMethod.estimateGas(...args);
     }
+
+    const data: string = harness.interface.encodeFunctionData(method, args);
+    const [signer]: Signer[] = await ethers.getSigners();
+    const to: string = await harness.getAddress();
+    return await signer.estimateGas({to, data});
 }
 
 // ------------------------------------------------------------
@@ -79,6 +75,10 @@ interface PrintBlockMatrixData {
     method: string;
     explanation: string;
     gas: string;
+    executionModel: string;
+    executionPath: string;
+    gasMeasurement: string;
+    resultExecution: string;
     shapeIn?: string;
     shapeOut?: string;
     inHex?: string;
@@ -90,7 +90,7 @@ interface PrintBlockMatrixData {
  *             Uses object destructuring and template literals for clean output generation.
  * @param data The structured data to print.
  */
-export function printBlockMatrix({t, method, explanation, gas, shapeIn = "-", shapeOut = "-", inHex = "-", outHex = "-"}: PrintBlockMatrixData): void {
+export function printBlockMatrix({t, method, explanation, gas, executionModel, executionPath, gasMeasurement, resultExecution, shapeIn = "-", shapeOut = "-", inHex = "-", outHex = "-"}: PrintBlockMatrixData): void {
     
     const sep: string = "-".repeat(60); // Separator
     
@@ -99,7 +99,11 @@ export function printBlockMatrix({t, method, explanation, gas, shapeIn = "-", sh
         `Test: ${t}`,
         `Method: ${method}`,
         `Explanation: ${explanation}`,
-        `Gas Usage: ${gas}`,
+        `Execution Model: ${executionModel}`,
+        `Execution Path: ${executionPath}`,
+        `Gas Measurement: ${gasMeasurement}`,
+        `Gas Used: ${gas}`,
+        `Result Execution: ${resultExecution}`,
         `Shape In: ${shapeIn}`,
         `Shape Out: ${shapeOut}`,
         `Input (Hex): ${inHex}`,
@@ -115,6 +119,10 @@ interface PrintBlockRegularData {
     method: string;
     explanation: string;
     gas: string;
+    executionModel: string;
+    executionPath: string;
+    gasMeasurement: string;
+    resultExecution: string;
     inHex?: string;
     expectedHex?: string;
     outHex?: string;
@@ -127,7 +135,7 @@ interface PrintBlockRegularData {
  *             Uses object destructuring and template literals for clean output generation.
  * @param data The structured data to print.
  */
-export function printBlockRegular({t, method, explanation, gas, inHex = "-", expectedHex = "-", outHex = "-", expectedDec = "-", outDec = "-"}: PrintBlockRegularData): void {
+export function printBlockRegular({t, method, explanation, gas, executionModel, executionPath, gasMeasurement, resultExecution, inHex = "-", expectedHex = "-", outHex = "-", expectedDec = "-", outDec = "-"}: PrintBlockRegularData): void {
     
     const sep: string = "-".repeat(60); // Separator
     
@@ -136,7 +144,11 @@ export function printBlockRegular({t, method, explanation, gas, inHex = "-", exp
         `Test: ${t}`,
         `Method: ${method}`,
         `Explanation: ${explanation}`,
-        `Gas Usage: ${gas}`,
+        `Execution Model: ${executionModel}`,
+        `Execution Path: ${executionPath}`,
+        `Gas Measurement: ${gasMeasurement}`,
+        `Gas Used: ${gas}`,
+        `Result Execution: ${resultExecution}`,
         `Input: ${inHex}`,
         `Expected Output (hex): ${expectedHex}`,
         `Output (hex): ${outHex}`,
@@ -154,6 +166,10 @@ interface printBlockOptimizationData {
     method: string; 
     explanation: string; 
     gas: bigint | number | string; 
+    executionModel: string;
+    executionPath: string;
+    gasMeasurement: string;
+    resultExecution: string;
     x0?: string;
     xFinal?: string;
     gx?: string;
@@ -162,14 +178,18 @@ interface printBlockOptimizationData {
     extra?: string;
 }
 
-export function printBlockOptimization({t, method, explanation, gas, x0 = "-", xFinal = "-", gx = "-", status = "-", iters = "-", extra = "-"}: printBlockOptimizationData): void {
+export function printBlockOptimization({t, method, explanation, gas, executionModel, executionPath, gasMeasurement, resultExecution, x0 = "-", xFinal = "-", gx = "-", status = "-", iters = "-", extra = "-"}: printBlockOptimizationData): void {
     const sep = "-".repeat(60);
     const logLines = [
         sep,
         `Test: ${t}`,
         `Method: ${method}`,
         `Explanation: ${explanation}`,
-        `Gas Usage: ${gas}`,
+        `Execution Model: ${executionModel}`,
+        `Execution Path: ${executionPath}`,
+        `Gas Measurement: ${gasMeasurement}`,
+        `Gas Used: ${gas}`,
+        `Result Execution: ${resultExecution}`,
         `Initial x: ${x0}`,
         `Final x: ${xFinal}`,
         `g(x_final): ${gx}`,

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 import {ethers} from "hardhat";
 import type {Contract} from "ethers";
-import {touchGas, estimateGas, printBlockRegular} from "./test-utils";
+import {measureTransactionGas, printBlockRegular} from "./test-utils";
 
 // ------------------------------------------------------------
 // Types
@@ -33,6 +33,10 @@ type TrigHarness = Contract & {
 
 const SCALE = 1e12;
 const REPEAT_COUNT = 10;
+const EXECUTION_MODEL = "transaction_plus_call_result";
+const EXECUTION_PATH = "harness_direct";
+const GAS_MEASUREMENT = "transaction_receipt_gas (callback-free)";
+const RESULT_EXECUTION = "eth_call_result";
 
 async function toQuad(h: TrigHarness, x: number): Promise<string> {
     return h.fromFloat(BigInt(Math.round(x * SCALE)));
@@ -189,8 +193,7 @@ describe("Trigonometry - Gas Growth Tests", function () {
                 it(`Test ${t}: ${m.label} gas sensitivity for x=${x}`, async function () {
                     const qx = await toQuad(harness, x);
 
-                    await touchGas(harness, m.method, [qx]);
-                    const gas = await estimateGas(harness, m.method, [qx]);
+                    const gas = await measureTransactionGas(harness, m.method, [qx]);
 
                     const out =
                         m.method === "sin" ? await harness.sin(qx) :
@@ -203,8 +206,12 @@ describe("Trigonometry - Gas Growth Tests", function () {
                     printBlockRegular({
                         t: `${t}`,
                         method: m.label,
-                        explanation: `Gas sensitivity to input magnitude using x=${x}.`,
-                        gas,
+                        explanation: `Gas sensitivity to input magnitude using x=${x}; result is read separately by eth_call.`,
+                        gas: gas.toString(),
+                        executionModel: EXECUTION_MODEL,
+                        executionPath: EXECUTION_PATH,
+                        gasMeasurement: GAS_MEASUREMENT,
+                        resultExecution: RESULT_EXECUTION,
                         inHex: `x=${x}`,
                         expectedHex: "N/A",
                         outHex: out,
@@ -222,8 +229,7 @@ describe("Trigonometry - Gas Growth Tests", function () {
                 it(`Test ${t}: ${m.label} gas sensitivity for x=${x}`, async function () {
                     const qx = await toQuad(harness, x);
 
-                    await touchGas(harness, m.method, [qx]);
-                    const gas = await estimateGas(harness, m.method, [qx]);
+                    const gas = await measureTransactionGas(harness, m.method, [qx]);
 
                     const out =
                         m.method === "asin"
@@ -235,8 +241,12 @@ describe("Trigonometry - Gas Growth Tests", function () {
                     printBlockRegular({
                         t: `${t}`,
                         method: m.label,
-                        explanation: `Gas sensitivity to input magnitude using x=${x}.`,
-                        gas,
+                        explanation: `Gas sensitivity to input magnitude using x=${x}; result is read separately by eth_call.`,
+                        gas: gas.toString(),
+                        executionModel: EXECUTION_MODEL,
+                        executionPath: EXECUTION_PATH,
+                        gasMeasurement: GAS_MEASUREMENT,
+                        resultExecution: RESULT_EXECUTION,
                         inHex: `x=${x}`,
                         expectedHex: "N/A",
                         outHex: out,
@@ -253,8 +263,7 @@ describe("Trigonometry - Gas Growth Tests", function () {
             it(`Test ${t}: atan gas sensitivity for x=${x}`, async function () {
                 const qx = await toQuad(harness, x);
 
-                await touchGas(harness, "atan", [qx]);
-                const gas = await estimateGas(harness, "atan", [qx]);
+                const gas = await measureTransactionGas(harness, "atan", [qx]);
 
                 const out = await harness.atan(qx);
                 const isNan = await harness.isNaN(out);
@@ -262,8 +271,12 @@ describe("Trigonometry - Gas Growth Tests", function () {
                 printBlockRegular({
                     t: `${t}`,
                     method: "atan",
-                    explanation: `Gas sensitivity to input magnitude using x=${x}.`,
-                    gas,
+                    explanation: `Gas sensitivity to input magnitude using x=${x}; result is read separately by eth_call.`,
+                    gas: gas.toString(),
+                    executionModel: EXECUTION_MODEL,
+                    executionPath: EXECUTION_PATH,
+                    gasMeasurement: GAS_MEASUREMENT,
+                    resultExecution: RESULT_EXECUTION,
                     inHex: `x=${x}`,
                     expectedHex: "N/A",
                     outHex: out,
@@ -311,8 +324,7 @@ describe("Trigonometry - Gas Growth Tests", function () {
             it(`Test ${t}: tan gas sensitivity at critical region ${c.label}`, async function () {
                 const qx = await c.buildInput();
 
-                await touchGas(harness, "tan", [qx]);
-                const gas = await estimateGas(harness, "tan", [qx]);
+                const gas = await measureTransactionGas(harness, "tan", [qx]);
 
                 const out = await harness.tan(qx);
                 const isNan = await harness.isNaN(out);
@@ -320,8 +332,12 @@ describe("Trigonometry - Gas Growth Tests", function () {
                 printBlockRegular({
                     t,
                     method: "tan",
-                    explanation: `Gas sensitivity to critical region using x=${c.label}.`,
-                    gas,
+                    explanation: `Gas sensitivity to critical region using x=${c.label}; result is read separately by eth_call.`,
+                    gas: gas.toString(),
+                    executionModel: EXECUTION_MODEL,
+                    executionPath: EXECUTION_PATH,
+                    gasMeasurement: GAS_MEASUREMENT,
+                    resultExecution: RESULT_EXECUTION,
                     inHex: `x=${c.label}`,
                     expectedHex: "N/A",
                     outHex: out,
@@ -367,22 +383,20 @@ describe("Trigonometry - Gas Growth Tests", function () {
 
                 for (let run = 1; run <= FULL_DOMAIN_REPEAT_COUNT; run++) {
                     // ---- sin ----
-                    await touchGas(harness, "sin", [qx]);
-                    const sinGas = await estimateGas(harness, "sin", [qx]);
+                    const sinGas = await measureTransactionGas(harness, "sin", [qx]);
                     const sinOut = await harness.sin(qx);
                     const sinVal = await fromQuad(harness, sinOut);
 
-                    sinGasRuns.push(BigInt(sinGas.toString()));
+                    sinGasRuns.push(sinGas);
                     lastSinOut = sinOut;
                     lastSinVal = sinVal;
 
                     // ---- cos ----
-                    await touchGas(harness, "cos", [qx]);
-                    const cosGas = await estimateGas(harness, "cos", [qx]);
+                    const cosGas = await measureTransactionGas(harness, "cos", [qx]);
                     const cosOut = await harness.cos(qx);
                     const cosVal = await fromQuad(harness, cosOut);
 
-                    cosGasRuns.push(BigInt(cosGas.toString()));
+                    cosGasRuns.push(cosGas);
                     lastCosOut = cosOut;
                     lastCosVal = cosVal;
                 }
@@ -404,8 +418,12 @@ describe("Trigonometry - Gas Growth Tests", function () {
                 printBlockRegular({
                     t,
                     method: "sin",
-                    explanation: `Average gas measurement at ${deg}° over ${FULL_DOMAIN_REPEAT_COUNT} repeated runs (full-domain sweep; exact critical angles injected).`,
+                    explanation: `Average receipt gas at ${deg}° over ${FULL_DOMAIN_REPEAT_COUNT} repeated transactions (full-domain sweep; exact critical angles injected; result read separately by eth_call).`,
                     gas: `${sinAvgGas}`,
+                    executionModel: EXECUTION_MODEL,
+                    executionPath: EXECUTION_PATH,
+                    gasMeasurement: GAS_MEASUREMENT,
+                    resultExecution: RESULT_EXECUTION,
                     inHex: `deg=${deg}`,
                     expectedHex: "N/A",
                     outHex: lastSinOut,
@@ -416,8 +434,12 @@ describe("Trigonometry - Gas Growth Tests", function () {
                 printBlockRegular({
                     t: `${t}-cos`,
                     method: "cos",
-                    explanation: `Average gas measurement at ${deg}° over ${FULL_DOMAIN_REPEAT_COUNT} repeated runs (full-domain sweep; exact critical angles injected).`,
+                    explanation: `Average receipt gas at ${deg}° over ${FULL_DOMAIN_REPEAT_COUNT} repeated transactions (full-domain sweep; exact critical angles injected; result read separately by eth_call).`,
                     gas: `${cosAvgGas}`,
+                    executionModel: EXECUTION_MODEL,
+                    executionPath: EXECUTION_PATH,
+                    gasMeasurement: GAS_MEASUREMENT,
+                    resultExecution: RESULT_EXECUTION,
                     inHex: `deg=${deg}`,
                     expectedHex: "N/A",
                     outHex: lastCosOut,
@@ -431,10 +453,10 @@ describe("Trigonometry - Gas Growth Tests", function () {
             const avgCos = totalCos / sampleCount;
 
             console.log("------------------------------------------------------------");
-            console.log("FULL DOMAIN SUMMARY");
+            console.log("FULL DOMAIN RECEIPT-GAS SUMMARY");
             console.log("------------------------------------------------------------");
             console.log(
-                `Input generation: Math.PI for general angles, exact quad constants for 0°, 90°, 180°, 270°, 360°. Each angle was evaluated ${FULL_DOMAIN_REPEAT_COUNT} times and average gas is reported.`
+                `Execution model: ${EXECUTION_MODEL}; execution path: ${EXECUTION_PATH}; gas metric: ${GAS_MEASUREMENT}; result metric: ${RESULT_EXECUTION}. Input generation: Math.PI for general angles, exact quad constants for 0°, 90°, 180°, 270°, 360°. Each angle was evaluated in ${FULL_DOMAIN_REPEAT_COUNT} transactions and average receipt gas is reported.`
             );
             console.log(`sin -> avg: ${avgSin} | min: ${minSin} | max: ${maxSin}`);
             console.log(`cos -> avg: ${avgCos} | min: ${minCos} | max: ${maxCos}`);

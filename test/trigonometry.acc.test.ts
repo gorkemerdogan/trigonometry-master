@@ -47,6 +47,10 @@ const FIXED_SEED = "TRIG_MULTI_CASE_SEED_V1";
 // Contract-side scaling used by TrigonometryHarness.fromFloat/toFloat.
 const SCALE = 10n ** 12n;
 const SCALE_NUMBER = Number(SCALE);
+const EXECUTION_MODEL = "estimateGas + eth_call_result";
+const EXECUTION_PATH = "harness_direct";
+const GAS_MEASUREMENT = "estimateGas (callback-free transaction simulation)";
+const RESULT_EXECUTION = "eth_call_result";
 
 // Useful numeric constants in the same scaled representation.
 const PI_SCALED = BigInt(Math.round(Math.PI * SCALE_NUMBER));
@@ -355,6 +359,7 @@ async function estimateGasFor(
     method: string,
     args: unknown[]
 ): Promise<bigint> {
+    // This is an estimateGas simulation. Any failure rejects the accuracy test.
     const fn = harness.getFunction(method) as unknown as {
         estimateGas: (...innerArgs: unknown[]) => Promise<bigint>;
     };
@@ -400,15 +405,19 @@ function printNumericSummary(title: string, method: string, records: NumericReco
     console.log(`${title}`);
     console.log("============================================================");
     console.log(`Method             : ${method}`);
+    console.log(`Execution Model    : ${EXECUTION_MODEL}`);
+    console.log(`Execution Path     : ${EXECUTION_PATH}`);
+    console.log(`Gas Measurement    : ${GAS_MEASUREMENT}`);
+    console.log(`Result Execution   : ${RESULT_EXECUTION}`);
     console.log(`Number of Tests    : ${records.length}`);
     console.log(`Average Abs. Error : ${formatScaledInt(avgBigInt(absErrors), 12)}`);
     console.log(`Max Abs. Error     : ${formatScaledInt(maxBigInt(absErrors), 12)}`);
     console.log(
         `Average Rel. Error : ${relErrors.length > 0 ? formatScaledInt(avgBigInt(relErrors), 12) : "N/A"}`
     );
-    console.log(`Min Gas            : ${minBigInt(gasValues).toString()}`);
-    console.log(`Average Gas        : ${avgBigInt(gasValues).toString()}`);
-    console.log(`Max Gas            : ${maxBigInt(gasValues).toString()}`);
+    console.log(`Min Estimated Gas  : ${minBigInt(gasValues).toString()}`);
+    console.log(`Avg Estimated Gas  : ${avgBigInt(gasValues).toString()}`);
+    console.log(`Max Estimated Gas  : ${maxBigInt(gasValues).toString()}`);
     console.log("============================================================");
 }
 
@@ -420,12 +429,16 @@ function printBooleanSummary(title: string, method: string, records: BoolRecord[
     console.log(`${title}`);
     console.log("============================================================");
     console.log(`Method             : ${method}`);
+    console.log(`Execution Model    : ${EXECUTION_MODEL}`);
+    console.log(`Execution Path     : ${EXECUTION_PATH}`);
+    console.log(`Gas Measurement    : ${GAS_MEASUREMENT}`);
+    console.log(`Result Execution   : ${RESULT_EXECUTION}`);
     console.log(`Number of Tests    : ${records.length}`);
     console.log(`Correct Cases      : ${okCount}`);
     console.log(`Accuracy           : ${okCount}/${records.length}`);
-    console.log(`Min Gas            : ${minBigInt(gasValues).toString()}`);
-    console.log(`Average Gas        : ${avgBigInt(gasValues).toString()}`);
-    console.log(`Max Gas            : ${maxBigInt(gasValues).toString()}`);
+    console.log(`Min Estimated Gas  : ${minBigInt(gasValues).toString()}`);
+    console.log(`Avg Estimated Gas  : ${avgBigInt(gasValues).toString()}`);
+    console.log(`Max Estimated Gas  : ${maxBigInt(gasValues).toString()}`);
     console.log("============================================================");
 }
 
@@ -433,7 +446,7 @@ function printBooleanSummary(title: string, method: string, records: BoolRecord[
 // Test Suite
 // ------------------------------------------------------------
 
-describe("Trigonometry Library - Harness-Observable Accuracy Benchmarks (1e-12 scale)", function () {
+describe("Trigonometry Library - Harness-Observable Accuracy Checks (1e-12 scale; estimateGas + eth_call)", function () {
     let harness: TrigonometryHarness;
 
     let QPI: string;
