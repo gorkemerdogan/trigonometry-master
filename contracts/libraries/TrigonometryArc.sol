@@ -64,7 +64,7 @@ library TrigonometryArc {
 
         // ─────────────────────────────────────────
         // Region 1: |x| ≤ 0.5  → polynomial in x
-        // asin(x) ≈ x + x·P(x²)
+        // asin(x) ≈ x + x³·P(x²)
         // ─────────────────────────────────────────
         if (MathLib.cmp(ax, half) <= 0) {
             bytes16 x2 = MathLib.mul(x, x);
@@ -77,7 +77,7 @@ library TrigonometryArc {
             p = MathLib.add(C5,  MathLib.mul(x2, p));
             p = MathLib.add(C3,  MathLib.mul(x2, p));
 
-            y0 = MathLib.add(x, MathLib.mul(x, p));
+            y0 = MathLib.add(x, MathLib.mul(x, MathLib.mul(x2, p)));
         } else {
             // ─────────────────────────────────────
             // Region 2: |x| > 0.5
@@ -106,7 +106,7 @@ library TrigonometryArc {
             p2 = MathLib.add(C5,  MathLib.mul(r2, p2));
             p2 = MathLib.add(C3,  MathLib.mul(r2, p2));
 
-            bytes16 asin_r = MathLib.add(r, MathLib.mul(r, p2)); // asin(r)
+            bytes16 asin_r = MathLib.add(r, MathLib.mul(r, MathLib.mul(r2, p2))); // asin(r)
             bytes16 two    = MathLib.fromUInt(2);
             bytes16 twoAr  = MathLib.mul(two, asin_r);
 

@@ -661,6 +661,32 @@ describe("Trigonometry Library - Multi-Case Accuracy Benchmarks", function () {
         ]);
     });
 
+    it("should retain inverse-trig accuracy in both asin polynomial regions", async function () {
+        const cases = [
+            { label: "primary polynomial region", xScaled: 500_000_000_000n },
+            { label: "half-angle polynomial region", xScaled: 933_318_333_165n },
+        ];
+
+        for (const { label, xScaled } of cases) {
+            const input = await qScaled(harness, xScaled);
+            const inputNumber = Number(xScaled) / SCALE_NUMBER;
+
+            const asinActual = await outScaled(harness, await harness.asin(input));
+            const asinExpected = toScaledFromNumber(Math.asin(inputNumber));
+            expect(
+                absBigInt(asinActual - asinExpected),
+                `asin ${label}`
+            ).to.be.at.most(DIRECT_ABS_TOL);
+
+            const acosActual = await outScaled(harness, await harness.acos(input));
+            const acosExpected = toScaledFromNumber(Math.acos(inputNumber));
+            expect(
+                absBigInt(acosActual - acosExpected),
+                `acos ${label}`
+            ).to.be.at.most(DIRECT_ABS_TOL);
+        }
+    });
+
     // ------------------------------------------------------------
     // 4) Random Direct / Inverse Function Accuracy Tests (30 each)
     // ------------------------------------------------------------
