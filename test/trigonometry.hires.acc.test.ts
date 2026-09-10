@@ -8,8 +8,11 @@ type HighResolutionHarness = Contract & {
     cosCore(x: string): Promise<string>;
     sin(x: string): Promise<string>;
     cos(x: string): Promise<string>;
+    tan(x: string): Promise<string>;
     asin(x: string): Promise<string>;
+    acos(x: string): Promise<string>;
     atan(x: string): Promise<string>;
+    isZero(x: string): Promise<boolean>;
     poleThreshold(): Promise<string>;
     eps1e30(): Promise<string>;
     halfPi(): Promise<string>;
@@ -88,6 +91,47 @@ function factorial(value: number): bigint {
     let result = 1n;
     for (let i = 2n; i <= BigInt(value); i++) result *= i;
     return result;
+}
+
+function integerSqrt(value: bigint): bigint {
+    if (value < 0n) throw new Error("integerSqrt requires a non-negative value");
+    if (value < 2n) return value;
+
+    let x = 1n << BigInt((value.toString(2).length + 1) >> 1);
+    while (true) {
+        const next = (x + value / x) >> 1n;
+        if (next >= x) return x;
+        x = next;
+    }
+}
+
+function sqrtFixed(value: bigint): bigint {
+    const radicand = value * DECIMAL_SCALE;
+    const lower = integerSqrt(radicand);
+    const upper = lower + 1n;
+    return radicand - lower * lower <= upper * upper - radicand ? lower : upper;
+}
+
+function oracleAsinSmall(input: bigint): bigint {
+    const xSquared = mulFixed(input, input);
+    let term = input;
+    let sum = input;
+
+    for (let n = 1; n < 400; n++) {
+        const odd = BigInt(2 * n - 1);
+        term = divRound(
+            mulFixed(term, xSquared) * odd * odd,
+            BigInt(2 * n) * BigInt(2 * n + 1)
+        );
+        sum += term;
+        if (abs(term) <= 1n) break;
+    }
+    return sum;
+}
+
+function oracleAcosNearOne(input: bigint): bigint {
+    const reduced = sqrtFixed(divRound(DECIMAL_SCALE - input, 2n));
+    return 2n * oracleAsinSmall(reduced);
 }
 
 function binary128ToFixed(rawHex: string): bigint {
@@ -378,6 +422,52 @@ describe("Trigonometry sin/cos high-resolution characterization", function () {
 
         expect(sinResult.maxAbsolute.absError).to.be.lte(edgeCeiling);
         expect(cosResult.maxAbsolute.absError).to.be.lte(edgeCeiling);
+    });
+
+    it("keeps acos accurate near the positive endpoint without changing its wider domain", async function () {
+        const distancesFromOne = [
+            "0.5",
+            "0.499999999999999999999999999999",
+            "0.49",
+            "0.25",
+            "0.1",
+            "0.01",
+            "0.0001",
+            "0.00000001",
+            "0.0000000000000001",
+            "0.000000000000000000000000000001",
+            "0",
+        ];
+        const observations: Observation[] = [];
+
+        for (const distance of distancesFromOne) {
+            const inputRaw = encodeFixed(DECIMAL_SCALE - decimalFixed(distance));
+            const input = binary128ToFixed(inputRaw);
+            const expected = oracleAcosNearOne(input);
+            observations.push(observation(inputRaw, await harness.acos(inputRaw), expected));
+        }
+
+        const result = characterize(observations);
+        const endpointCeiling = decimalFixed("0.0000000000005"); // 5e-13.
+        printCharacterization("acos across the x=0.5 branch and toward x=1", result);
+        expect(result.maxAbsolute.absError).to.be.lte(endpointCeiling);
+    });
+
+    it("recognizes both zero encodings and preserves odd-function signed zero", async function () {
+        const positiveZero = "0x00000000000000000000000000000000";
+        const negativeZero = "0x80000000000000000000000000000000";
+        const positiveOne = "0x3fff0000000000000000000000000000";
+
+        expect(await harness.isZero(positiveZero)).to.equal(true);
+        expect(await harness.isZero(negativeZero)).to.equal(true);
+        expect(await harness.sin(positiveZero)).to.equal(positiveZero);
+        expect(await harness.sin(negativeZero)).to.equal(negativeZero);
+        expect(await harness.tan(positiveZero)).to.equal(positiveZero);
+        expect(await harness.tan(negativeZero)).to.equal(negativeZero);
+        expect(await harness.atan(positiveZero)).to.equal(positiveZero);
+        expect(await harness.atan(negativeZero)).to.equal(negativeZero);
+        expect(await harness.cos(positiveZero)).to.equal(positiveOne);
+        expect(await harness.cos(negativeZero)).to.equal(positiveOne);
     });
 
     it("decodes corrected trigonometric thresholds and exercises their branches", async function () {

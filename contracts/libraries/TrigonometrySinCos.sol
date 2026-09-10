@@ -41,6 +41,8 @@ library TrigonometrySinCos {
     }
 
     function _floorToInt(bytes16 x) private pure returns (int256) {
+        if (MathLib.isZero(x)) return 0;
+
         int256 k = MathLib.toInt(x);
         if (MathLib.cmp(x, MathLib.fromInt(k)) < 0) {
             k -= 1;
@@ -253,6 +255,9 @@ library TrigonometrySinCos {
      * @return bytes16 Approximation of sin(x), encoded as binary128
      */
     function sin(bytes16 x) internal pure returns (bytes16) {
+        // Preserve the sign bit required by odd-function signed-zero semantics.
+        if (MathLib.isZero(x)) return x;
+
         // 1) Range reduction → xr in [-π/2, π/2], mask holds swap/sign info
         (bytes16 xr, uint8 mask) = reduceAngle(x);
 

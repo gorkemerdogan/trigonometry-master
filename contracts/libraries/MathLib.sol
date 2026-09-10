@@ -49,7 +49,8 @@ library MathLib {
 
     /**
      * @notice Divides two quadruple-precision numbers.
-     *         Reverts if 'b == 0'.
+     * @dev Follows ABDKMathQuad special-value behavior: a nonzero finite value
+     *      divided by signed zero returns signed infinity, while 0 / 0 returns NaN.
      * @param a Numerator
      * @param b Denominator
      * @return bytes16 a / b
@@ -101,6 +102,8 @@ library MathLib {
      * @return floorX Quad-precision floor(x)
      */
     function floorQuad(bytes16 x) public pure returns (bytes16 floorX) {
+        if (isZero(x)) return x;
+
         // Case 1: x >= 0
         // Truncation and floor are equivalent for non-negative
         // numbers because both move toward zero.
@@ -134,6 +137,8 @@ library MathLib {
      * @return floorI Signed integer floor(x)
      */
     function floorInt(bytes16 x) public pure returns (int256 floorI) {
+        if (isZero(x)) return 0;
+
         // Case 1: x >= 0
         // trunc(x) moves toward zero → equivalent to floor(x)
         if (cmp(x, fromInt(0)) >= 0) { return toInt(x); }// floor = trunc
@@ -179,16 +184,15 @@ library MathLib {
     }
 
     /**
-    * @notice Returns true if 'x' is exactly zero in IEEE-754 quad format.
-    *         Uses cmp(x, 0) to correctly treat +0 and -0 as zero.
+    * @notice Returns true if 'x' is either binary128 signed-zero encoding.
+    * @dev Tests the magnitude bits directly because ABDKMathQuad.cmp distinguishes
+    *      the +0 and -0 bit patterns.
     *
     * @param x  Quadruple-precision value (bytes16)
     * @return   True if x == 0, false otherwise
     */
     function isZero(bytes16 x) internal pure returns (bool) {
-        // QZERO is cheaper to inline than reading a constant
-        bytes16 zero = bytes16(0);
-        return cmp(x, zero) == 0;
+        return (uint128(x) & 0x7fffffffffffffffffffffffffffffff) == 0;
     }
 
     /**

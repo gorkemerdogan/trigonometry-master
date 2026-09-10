@@ -139,6 +139,10 @@ library LibTrigMaster {
         bytes memory _calldata
     ) internal {
         for (uint256 i; i < _diamondCut.length; i++) {
+            require(
+                _diamondCut[i].functionSelectors.length != 0,
+                "LibTrigMaster: no selectors"
+            );
             IDiamondCut.FacetCutAction action = _diamondCut[i].action;
             if (action == IDiamondCut.FacetCutAction.Add) {
                 addFunctions(_diamondCut[i].facetAddress, _diamondCut[i].functionSelectors);
@@ -168,6 +172,7 @@ library LibTrigMaster {
      */
     function addFunctions(address _facet, bytes4[] memory _selectors) internal {
         require(_facet != address(0), "LibTrigMaster: facet address is zero");
+        require(_facet.code.length != 0, "LibTrigMaster: facet has no code");
         DiamondStorage storage ds = diamondStorage();
 
         // if facet is new, push it to facetAddresses
@@ -196,6 +201,7 @@ library LibTrigMaster {
      */
     function replaceFunctions(address _facet, bytes4[] memory _selectors) internal {
         require(_facet != address(0), "LibTrigMaster: facet address is zero");
+        require(_facet.code.length != 0, "LibTrigMaster: facet has no code");
         for (uint256 i; i < _selectors.length; i++) {
             removeFunction(_selectors[i]);
             addFunctions(_facet, toSingletonArray(_selectors[i]));
@@ -206,10 +212,11 @@ library LibTrigMaster {
      * @notice Removes a list of function selectors from the diamond.
      *         Deletes each selector mapping and removes empty facets.
      *
+     * @param _facet Must be address(0), as required for EIP-2535 removals
      * @param _selectors Function selectors to remove
      */
-    function removeFunctions(address /*_facet*/, bytes4[] memory _selectors) internal {
-        // _facet param is unused but kept for event consistency
+    function removeFunctions(address _facet, bytes4[] memory _selectors) internal {
+        require(_facet == address(0), "LibTrigMaster: remove facet must be zero");
         for (uint256 i; i < _selectors.length; i++) {
             removeFunction(_selectors[i]);
         }
@@ -267,6 +274,7 @@ library LibTrigMaster {
         if (_init == address(0)) {
             require(_calldata.length == 0, "LibTrigMaster: _init is zero but calldata is not empty");
         } else {
+            require(_init.code.length != 0, "LibTrigMaster: init has no code");
             (bool success, bytes memory error) = _init.delegatecall(_calldata);
             if (!success) {
                 if (error.length > 0) {

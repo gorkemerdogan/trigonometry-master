@@ -157,8 +157,9 @@ library TrigonometryArc {
      * @notice Computes a binary128-encoded approximation of acos(x).
      * @dev Domain: x ∈ [-1, 1].
      *
-     *      Implemented via the identity:
-     *          acos(x) = π/2 − asin(x)
+     *      For x > 0.5, uses the endpoint-stable identity:
+     *          acos(x) = 2·asin(sqrt((1 − x) / 2))
+     *      Elsewhere it uses acos(x) = π/2 − asin(x).
      *
      *      Returns QNAN for NaN, infinity, or a finite input with |x| > 1.
      *
@@ -173,6 +174,14 @@ library TrigonometryArc {
 
         if (MathLib.cmp(ax, one) > 0) {
             return QNAN;
+        }
+
+        bytes16 half = QC.HALF();
+        if (MathLib.cmp(x, half) > 0) {
+            bytes16 reduced = MathLib.sqrt(
+                MathLib.mul(half, MathLib.sub(one, x))
+            );
+            return MathLib.mul(MathLib.fromUInt(2), asin(reduced));
         }
 
         bytes16 a = asin(x);
@@ -202,6 +211,7 @@ library TrigonometryArc {
         if (_isInfinity(x)) {
             return (uint128(x) >> 127) == 0 ? QC.HALF_PI() : MathLib.neg(QC.HALF_PI());
         }
+        if (MathLib.isZero(x)) return x;
 
         bytes16 one = MathLib.fromUInt(1);
         bytes16 ax  = MathLib.abs(x);

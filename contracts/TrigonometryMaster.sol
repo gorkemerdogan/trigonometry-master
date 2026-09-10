@@ -17,6 +17,7 @@ contract TrigonometryMaster {
      * @param _diamondCutFacet Address of the facet providing the diamondCut function.
      */
     constructor(address _owner, address _diamondCutFacet) {
+        require(_owner != address(0), "TrigonometryMaster: owner is zero");
         LibTrigMaster.setContractOwner(_owner);
 
         // Register diamondCut function so upgrades are possible

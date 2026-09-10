@@ -5,6 +5,7 @@ import { TrigonometrySinCos as TSC } from "../libraries/TrigonometrySinCos.sol";
 import { TrigonometryTanCot as TTC } from "../libraries/TrigonometryTanCot.sol";
 import { TrigonometryArc as TA } from "../libraries/TrigonometryArc.sol";
 import { QuadConstants as QC } from "../libraries/QuadConstants.sol";
+import { MathLib } from "../libraries/MathLib.sol";
 
 /**
  * @notice Test-only entry points that preserve raw binary128 inputs and outputs.
@@ -28,12 +29,24 @@ contract TrigonometryHighResolutionHarness {
         return TSC.cos(x);
     }
 
+    function tan(bytes16 x) external pure returns (bytes16) {
+        return TTC.tan(x);
+    }
+
     function asin(bytes16 x) external pure returns (bytes16) {
         return TA.asin(x);
     }
 
+    function acos(bytes16 x) external pure returns (bytes16) {
+        return TA.acos(x);
+    }
+
     function atan(bytes16 x) external pure returns (bytes16) {
         return TA.atan(x);
+    }
+
+    function isZero(bytes16 x) external pure returns (bool) {
+        return MathLib.isZero(x);
     }
 
     function poleThreshold() external pure returns (bytes16) {

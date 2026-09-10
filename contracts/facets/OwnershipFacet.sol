@@ -25,6 +25,7 @@ contract OwnershipFacet is IERC173 {
      */ 
     function transferOwnership(address newOwner) external override {
         LibTrigMaster.enforceIsContractOwner();
+        require(newOwner != address(0), "OwnershipFacet: new owner is zero");
         
         address prevOwner = LibTrigMaster.setContractOwner(newOwner);        
         emit OwnershipTransferred(prevOwner, newOwner);
