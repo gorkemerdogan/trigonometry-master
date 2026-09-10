@@ -144,9 +144,9 @@ function encodeFixed(value: bigint): string {
 }
 
 function oracleSinCos(input: bigint): { sin: bigint; cos: bigint } {
-    let x = input;
-    while (x > PI) x -= TWO_PI;
-    while (x < -PI) x += TWO_PI;
+    let x = input - (input / TWO_PI) * TWO_PI;
+    if (x > PI) x -= TWO_PI;
+    if (x < -PI) x += TWO_PI;
 
     const xSquared = mulFixed(x, x);
     let sinTerm = x;
@@ -294,6 +294,31 @@ describe("Trigonometry sin/cos high-resolution characterization", function () {
 
         printCharacterization("sin with quadrant/range reduction", sinResult);
         printCharacterization("cos with quadrant/range reduction", cosResult);
+
+        expect(sinResult.maxAbsolute.absError).to.be.lte(rangeReductionCeiling);
+        expect(cosResult.maxAbsolute.absError).to.be.lte(rangeReductionCeiling);
+    });
+
+    it("characterizes public sin/cos near the supported 2^32-radian boundary", async function () {
+        const sinObservations: Observation[] = [];
+        const cosObservations: Observation[] = [];
+        const boundary = (1n << 32n) * DECIMAL_SCALE;
+        const inputs = [boundary - DECIMAL_SCALE, boundary, -boundary + DECIMAL_SCALE, -boundary];
+
+        for (const target of inputs) {
+            const inputRaw = encodeFixed(target);
+            const input = binary128ToFixed(inputRaw);
+            const reference = oracleSinCos(input);
+            sinObservations.push(observation(inputRaw, await harness.sin(inputRaw), reference.sin));
+            cosObservations.push(observation(inputRaw, await harness.cos(inputRaw), reference.cos));
+        }
+
+        const sinResult = characterize(sinObservations);
+        const cosResult = characterize(cosObservations);
+        const rangeReductionCeiling = decimalFixed("0.0000000000005"); // 5e-13.
+
+        printCharacterization("sin near supported |x| = 2^32 boundary", sinResult);
+        printCharacterization("cos near supported |x| = 2^32 boundary", cosResult);
 
         expect(sinResult.maxAbsolute.absError).to.be.lte(rangeReductionCeiling);
         expect(cosResult.maxAbsolute.absError).to.be.lte(rangeReductionCeiling);

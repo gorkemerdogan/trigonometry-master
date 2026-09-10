@@ -10,6 +10,8 @@ import { TrigonometryArc as TA } from "../libraries/TrigonometryArc.sol";
  * @notice Facet exposing trigonometric approximation functions that operate on
  *         IEEE-754 binary128 (bytes16) values.
  *         All functions are pure passthroughs: sin, cos, tan, cot, asin, acos, and atan.
+ *         sin, cos, tan, and cot accept only finite |x| ≤ 2^32 radians under
+ *         the current quotient-based angle reducer.
  */
 contract TrigonometryFacet {
     function sin(bytes16 x) external pure returns (bytes16) {

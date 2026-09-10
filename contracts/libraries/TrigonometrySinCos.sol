@@ -17,6 +17,28 @@ library TrigonometrySinCos {
     // ------------------------------------------------------------
 
     bytes16 internal constant QZERO = 0x00000000000000000000000000000000;
+    // |x| <= 2^32 radians. This keeps the current binary128 quotient-and-subtract
+    // reducer in its characterized range; broader support needs multiprecision
+    // reduction such as Payne-Hanek.
+    bytes16 internal constant MAX_REDUCTION_ARGUMENT = 0x401F0000000000000000000000000000;
+
+    /**
+     * @notice Validates the supported domain for quotient-based angle reduction.
+     * @dev This must run before converting x / (2π) to int256. NaN and infinity
+     *      are rejected explicitly, while finite inputs outside ±2^32 are rejected
+     *      because this reducer does not preserve phase for arbitrary binary128 angles.
+     */
+    function _validateReductionArgument(bytes16 x) private pure {
+        if (MathLib.isNaN(x)) revert("TRIG_NAN_ANGLE");
+
+        uint128 exponent = (uint128(x) >> 112) & 0x7fff;
+        if (exponent == 0x7fff) revert("TRIG_INFINITE_ANGLE");
+
+        require(
+            MathLib.cmp(MathLib.abs(x), MAX_REDUCTION_ARGUMENT) <= 0,
+            "TRIG_ARGUMENT_OUT_OF_RANGE"
+        );
+    }
 
     function _floorToInt(bytes16 x) private pure returns (int256) {
         int256 k = MathLib.toInt(x);
@@ -33,6 +55,11 @@ library TrigonometrySinCos {
      *        (1) Modulo 2π → principal domain
      *        (2) Modulo π/2 → core subrange
      *
+     *      Supported finite input range: |x| ≤ 2^32 radians. The quotient-and-
+     *      subtract approach is not reliable for arbitrary binary128 magnitudes;
+     *      broad-domain reduction requires Payne-Hanek or equivalent multiprecision
+     *      arithmetic.
+     *
      *      The returned bitmask contains:
      *        bit0: swap flag (0 → use sin polynomial, 1 → use cos polynomial)
      *        bit1: sine sign bit  (1 → negative)
@@ -45,6 +72,8 @@ library TrigonometrySinCos {
     function reduceAngle(
         bytes16 x
     ) internal pure returns (bytes16 xr, uint8 mask) {
+        _validateReductionArgument(x);
+
         bytes16 halfpi = QC.HALF_PI();
         bytes16 twopi = QC.TWO_PI();
 
@@ -217,6 +246,9 @@ library TrigonometrySinCos {
      *        (4) select sin or cos polynomial via mask bit0
      *        (5) apply quadrant sign adjustment (bit1)
      *
+     *      Accepts only finite |x| ≤ 2^32 radians; other inputs revert before
+     *      reduction. This is not a broad binary128-domain angle reducer.
+     *
      * @param x Input angle (bytes16)
      * @return bytes16 Approximation of sin(x), encoded as binary128
      */
@@ -270,6 +302,9 @@ library TrigonometrySinCos {
      *        (3) complementary mapping when |xr| > π/4
      *        (4) evaluate appropriate polynomial via swap bit
      *        (5) apply cosine sign from mask bit2
+     *
+     *      Accepts only finite |x| ≤ 2^32 radians; other inputs revert before
+     *      reduction. This is not a broad binary128-domain angle reducer.
      *
      * @param x Input angle (bytes16)
      * @return bytes16 Approximation of cos(x), encoded as binary128

@@ -9,11 +9,14 @@ import { TrigonometryArc as TA } from "./TrigonometryArc.sol";
  * @title Trigonometry Library
  * @notice Trigonometric utilities using binary128 arithmetic and internal
  *         sine/cosine, tangent/cotangent, and arc-function approximation modules.
+ *         Direct trigonometric functions accept only finite angles with
+ *         |x| ≤ 2^32 radians under the current quotient-based reducer.
  */
 library Trigonometry {
 
     /**
      * @notice Computes sin(x) using binary128 arithmetic.
+     *         Reverts unless x is finite and |x| ≤ 2^32 radians.
      * @param x Input angle in radians (bytes16)
      * @return bytes16 Sine of x
      */
@@ -23,6 +26,7 @@ library Trigonometry {
 
     /**
      * @notice Computes cos(x) using binary128 arithmetic.
+     *         Reverts unless x is finite and |x| ≤ 2^32 radians.
      * @param x Input angle in radians (bytes16)
      * @return bytes16 Cosine of x
      */
@@ -32,7 +36,8 @@ library Trigonometry {
 
     /**
      * @notice Computes tan(x) using binary128 arithmetic.
-     *         May revert internally for points where tangent is undefined.
+     *         Reverts unless x is finite and |x| ≤ 2^32 radians; returns NaN
+     *         for an in-range point where tangent is undefined.
      * @param x Input angle in radians (bytes16)
      * @return bytes16 Tangent of x
      */
@@ -42,7 +47,8 @@ library Trigonometry {
 
     /**
      * @notice Computes cot(x) using binary128 arithmetic.
-     *         May revert internally for points where cotangent is undefined.
+     *         Reverts unless x is finite and |x| ≤ 2^32 radians; returns NaN
+     *         for an in-range point where cotangent is undefined.
      * @param x Input angle in radians (bytes16)
      * @return bytes16 Cotangent of x
      */

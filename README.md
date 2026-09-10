@@ -70,6 +70,12 @@ The current sine core retains Taylor terms through x¹³ and the cosine core thr
 
 The current accuracy test harness converts values through a 1e12 fixed-point scale. Its benchmark output is consequently observable only to 1e-12 and should be read as a measured harness-level result, not as a 34-decimal accuracy measurement.
 
+## Supported Trigonometric Argument Range
+
+`sin`, `cos`, `tan`, and `cot` accept finite input angles only when `|x| <= 2^32` radians (approximately 4.29e9). The current reducer divides by a binary128 `2π` constant, converts the quotient to `int256`, and subtracts the corresponding multiple of `2π`. It intentionally rejects NaN, infinity, and finite angles outside this range rather than attempting unreliable large-argument reduction or allowing an internal conversion overflow.
+
+This is not broad binary128-domain argument reduction. Accurate support for arbitrary large binary128 angles requires a multiprecision method such as Payne-Hanek. For valid in-range inputs, `tan` and `cot` retain their separate pole behavior and return NaN when their respective denominator is approximately zero.
+
 This precision model is especially useful for smart contract applications where traditional integer-based arithmetic is insufficient for:
 
 - trigonometric evaluation
