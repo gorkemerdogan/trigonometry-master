@@ -35,7 +35,6 @@ library TrigonometryTanCot {
      *        - Accepts only finite |x| ≤ 2^32 radians; invalid or out-of-range
      *          inputs revert in the shared sine/cosine reducer.
      *        - Returns QNAN when cos(x) ≈ 0 (undefined).
-     *        - Propagates QNAN from sin or cos if present.
      *
      *      Error is determined by the underlying sine/cosine approximations,
      *      range reduction, and division; it can increase near poles. Binary128
@@ -69,7 +68,6 @@ library TrigonometryTanCot {
      *        - Accepts only finite |x| ≤ 2^32 radians; invalid or out-of-range
      *          inputs revert in the shared sine/cosine reducer.
      *        - Returns QNAN when sin(x) ≈ 0 (undefined).
-     *        - Propagates QNAN from sin or cos if present.
      *
      *      Error is determined by the underlying sine/cosine approximations,
      *      range reduction, and division; it can increase near poles. Binary128

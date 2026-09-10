@@ -12,6 +12,8 @@ import { TrigonometryArc as TA } from "../libraries/TrigonometryArc.sol";
  *         All functions are pure passthroughs: sin, cos, tan, cot, asin, acos, and atan.
  *         sin, cos, tan, and cot accept only finite |x| ≤ 2^32 radians under
  *         the current quotient-based angle reducer.
+ *         asin and acos return NaN for non-finite or out-of-domain values; atan
+ *         returns NaN for NaN and signed π/2 for signed infinity.
  */
 contract TrigonometryFacet {
     function sin(bytes16 x) external pure returns (bytes16) {

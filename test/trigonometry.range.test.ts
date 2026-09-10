@@ -11,6 +11,9 @@ type TrigonometryHarness = Contract & {
     cos(x: string): Promise<string>;
     tan(x: string): Promise<string>;
     cot(x: string): Promise<string>;
+    asin(x: string): Promise<string>;
+    acos(x: string): Promise<string>;
+    atan(x: string): Promise<string>;
     QHALF_PI(): Promise<string>;
 };
 
@@ -19,6 +22,7 @@ const MAX_ARGUMENT = 1n << 32n;
 const POSITIVE_INFINITY = "0x7fff0000000000000000000000000000";
 const NEGATIVE_INFINITY = "0xffff0000000000000000000000000000";
 const QNAN = "0x7fff8000000000000000000000000000";
+const NEGATIVE_HALF_PI = "0xbfff921fb54442d18469898cc51701b8";
 // 2^260 is finite binary128 but x / (2π) exceeds int256; it exercised the
 // accidental ABDKMathQuad.toInt overflow before the explicit range guard.
 const PREVIOUS_TO_INT_OVERFLOW_INPUT = "0x41030000000000000000000000000000";
@@ -100,6 +104,17 @@ describe("Trigonometry argument-reduction range validation", function () {
         }
     });
 
+    it("returns documented non-finite results for every inverse trigonometric function", async function () {
+        for (const input of [QNAN, POSITIVE_INFINITY, NEGATIVE_INFINITY]) {
+            expect(await harness.isNaN(await harness.asin(input)), `asin(${input})`).to.equal(true);
+            expect(await harness.isNaN(await harness.acos(input)), `acos(${input})`).to.equal(true);
+        }
+
+        expect(await harness.atan(QNAN)).to.equal(QNAN);
+        expect(await harness.atan(POSITIVE_INFINITY)).to.equal(await harness.QHALF_PI());
+        expect(await harness.atan(NEGATIVE_INFINITY)).to.equal(NEGATIVE_HALF_PI);
+    });
+
     it("keeps small inputs and in-range pole behavior distinct from range rejection", async function () {
         const smallInput = await harness.fromFloat(500_000_000_000n); // 0.5
         const expected = [
@@ -119,5 +134,9 @@ describe("Trigonometry argument-reduction range validation", function () {
         expect(await harness.isNaN(await harness.tan(await harness.QHALF_PI()))).to.equal(true);
         const zero = await harness.fromFloat(0n);
         expect(await harness.isNaN(await harness.cot(zero))).to.equal(true);
+
+        const outsideAsinDomain = await harness.fromFloat(SCALE + 1n);
+        expect(await harness.isNaN(await harness.asin(outsideAsinDomain))).to.equal(true);
+        expect(await harness.isNaN(await harness.acos(outsideAsinDomain))).to.equal(true);
     });
 });

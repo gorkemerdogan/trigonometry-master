@@ -76,6 +76,10 @@ The current accuracy test harness converts values through a 1e12 fixed-point sca
 
 This is not broad binary128-domain argument reduction. Accurate support for arbitrary large binary128 angles requires a multiprecision method such as Payne-Hanek. For valid in-range inputs, `tan` and `cot` retain their separate pole behavior and return NaN when their respective denominator is approximately zero.
 
+## NaN and Infinity Behavior
+
+`sin`, `cos`, `tan`, and `cot` reject NaN with `TRIG_NAN_ANGLE` and signed infinity with `TRIG_INFINITE_ANGLE`; these inputs cannot enter angle reduction. `asin` and `acos` return canonical NaN for NaN, infinity, and finite values outside `[-1, 1]`. `atan` returns canonical NaN for NaN and returns the signed π/2 limit for signed infinity. These input cases are distinct from finite mathematical failures: valid in-range tangent and cotangent poles return NaN.
+
 This precision model is especially useful for smart contract applications where traditional integer-based arithmetic is insufficient for:
 
 - trigonometric evaluation

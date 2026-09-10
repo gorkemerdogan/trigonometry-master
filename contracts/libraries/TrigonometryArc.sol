@@ -16,6 +16,11 @@ library TrigonometryArc {
     bytes16 internal constant QZERO = 0x00000000000000000000000000000000;
     bytes16 internal constant QNAN  = 0x7fff8000000000000000000000000000;
 
+    /// @dev True for either signed binary128 infinity; NaN is handled separately.
+    function _isInfinity(bytes16 x) private pure returns (bool) {
+        return !MathLib.isNaN(x) && ((uint128(x) >> 112) & 0x7fff) == 0x7fff;
+    }
+
     // ------------------------------------------------------------
     //  asin(x)
     // ------------------------------------------------------------
@@ -34,9 +39,12 @@ library TrigonometryArc {
      *         f'(y) = cos(y)
      *
      * @param x Input value (bytes16)
-     * @return bytes16 asin(x) in radians, or QNAN for inputs outside the domain
+     * @return bytes16 asin(x) in radians, or QNAN for NaN, infinity, or inputs
+     *         outside the finite domain
      */
     function asin(bytes16 x) internal pure returns (bytes16) {
+        if (MathLib.isNaN(x) || _isInfinity(x)) return QNAN;
+
         // Domain check
         bytes16 one = MathLib.fromUInt(1);
         bytes16 ax  = MathLib.abs(x);
@@ -152,12 +160,14 @@ library TrigonometryArc {
      *      Implemented via the identity:
      *          acos(x) = π/2 − asin(x)
      *
-     *      Returns QNAN if |x| > 1.
+     *      Returns QNAN for NaN, infinity, or a finite input with |x| > 1.
      *
      * @param x Input value (bytes16)
      * @return bytes16 acos(x) in radians
      */
     function acos(bytes16 x) internal pure returns (bytes16) {
+        if (MathLib.isNaN(x) || _isInfinity(x)) return QNAN;
+
         bytes16 one = MathLib.fromUInt(1);
         bytes16 ax  = MathLib.abs(x);
 
@@ -182,13 +192,16 @@ library TrigonometryArc {
      *             f(t)  = tan(t) − x
      *             f'(t) = 1 + tan²(t)
      *
-     *       For |x| → ∞, returns ±π/2.
+     *       For ±infinity, returns the corresponding signed π/2 limit.
      *
      * @param x Input value (bytes16)
-     * @return bytes16 atan(x) in radians, or QNAN if x is NaN
+     * @return bytes16 atan(x) in radians; QNAN for NaN, signed π/2 for infinity
      */
     function atan(bytes16 x) internal pure returns (bytes16) {
         if (MathLib.isNaN(x)) return QNAN;
+        if (_isInfinity(x)) {
+            return (uint128(x) >> 127) == 0 ? QC.HALF_PI() : MathLib.neg(QC.HALF_PI());
+        }
 
         bytes16 one = MathLib.fromUInt(1);
         bytes16 ax  = MathLib.abs(x);

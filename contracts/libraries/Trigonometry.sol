@@ -58,7 +58,7 @@ library Trigonometry {
 
     /**
      * @notice Computes arcsin(x) using binary128 arithmetic.
-     *         Expects x ∈ [-1, 1].
+     *         Returns NaN for NaN, infinity, or a finite x outside [-1, 1].
      * @param x Input value (bytes16)
      * @return bytes16 arcsin(x) in radians
      */
@@ -68,7 +68,7 @@ library Trigonometry {
 
     /**
      * @notice Computes arccos(x) using binary128 arithmetic.
-     *         Expects x ∈ [-1, 1].
+     *         Returns NaN for NaN, infinity, or a finite x outside [-1, 1].
      * @param x Input value (bytes16)
      * @return bytes16 arccos(x) in radians
      */
@@ -78,6 +78,7 @@ library Trigonometry {
 
     /**
      * @notice Computes arctan(x) using binary128 arithmetic.
+     *         Returns NaN for NaN and signed π/2 for signed infinity.
      * @param x Input value (bytes16)
      * @return bytes16 arctan(x) in radians
      */
