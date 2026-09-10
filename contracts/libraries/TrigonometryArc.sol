@@ -7,7 +7,7 @@ import { TrigonometrySinCos as TSC } from "./TrigonometrySinCos.sol";
 
 /**
  * @title TrigonometryArc Library
- * @notice High-precision inverse trigonometric functions (asin, acos, atan) in
+ * @notice Inverse trigonometric approximations (asin, acos, atan) using
  *         IEEE-754 binary128 (bytes16) arithmetic.
  *         Implements domain checks, stable polynomial approximations, half-angle
  *         reductions, and Newton refinements.
@@ -21,7 +21,7 @@ library TrigonometryArc {
     // ------------------------------------------------------------
 
     /**
-     * @notice Computes asin(x) in binary128 precision.
+     * @notice Computes a binary128-encoded approximation of asin(x).
      * @dev Domain: x ∈ [-1, 1].
      *
      *      Uses a region-dependent strategy:
@@ -146,7 +146,7 @@ library TrigonometryArc {
     // ------------------------------------------------------------
 
     /**
-     * @notice Computes acos(x) in binary128 precision.
+     * @notice Computes a binary128-encoded approximation of acos(x).
      * @dev Domain: x ∈ [-1, 1].
      *
      *      Implemented via the identity:
@@ -173,7 +173,7 @@ library TrigonometryArc {
     //  atan(x)
     // ------------------------------------------------------------
     /**
-     * @notice Computes atan(x) in binary128 precision.
+     * @notice Computes a binary128-encoded approximation of atan(x).
      * @dev Strategy:
      *       (1) Initial approximation via:
      *             atan(x) ≈ asin( x / sqrt(1 + x²) )

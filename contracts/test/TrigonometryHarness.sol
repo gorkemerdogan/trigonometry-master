@@ -162,7 +162,7 @@ contract TrigonometryHarness {
     // ------------------------------------------------------------
 
     /**
-     * @notice Computes sin(x) using high-precision trigonometric reduction.
+     * @notice Computes sin(x) using trigonometric range reduction.
      * @param x Quadruple-precision angle.
      * @return sin(x).
      */

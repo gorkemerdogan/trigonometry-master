@@ -7,8 +7,8 @@ import { TrigonometryArc as TA } from "../libraries/TrigonometryArc.sol";
 
 /**
  * @title TrigonometryFacet
- * @notice Facet exposing high-precision trigonometric functions that operate on
- *         IEEE-754 quadruple-precision (bytes16) values.
+ * @notice Facet exposing trigonometric approximation functions that operate on
+ *         IEEE-754 binary128 (bytes16) values.
  *         All functions are pure passthroughs: sin, cos, tan, cot, asin, acos, and atan.
  */
 contract TrigonometryFacet {

@@ -6,9 +6,9 @@ import { TrigonometrySinCos as TSC } from "./TrigonometrySinCos.sol";
 
 /**
  * @title  TrigonometryTanCot
- * @notice High-precision tangent and cotangent in IEEE-754 binary128 (bytes16).
- *         Uses sine/cosine from TrigonometrySinCos and applies domain checks
- *         for singularities where results are undefined.
+ * @notice Tangent and cotangent using IEEE-754 binary128 (bytes16) arithmetic.
+ *         Uses the finite sine/cosine approximations from TrigonometrySinCos and
+ *         applies domain checks for singularities where results are undefined.
  */
 library TrigonometryTanCot {
 
@@ -20,7 +20,7 @@ library TrigonometryTanCot {
     // tan(x)
     // ------------------------------------------------------------
     /**
-     * @notice Computes tan(x) in binary128 precision.
+     * @notice Computes a binary128-encoded approximation of tan(x).
      * @dev Implementation:
      *        tan(x) = sin(x) / cos(x).
      *
@@ -28,11 +28,12 @@ library TrigonometryTanCot {
      *        - Returns QNAN when cos(x) ≈ 0 (undefined).
      *        - Propagates QNAN from sin or cos if present.
      *
-     *      Precision is limited primarily by the underlying sin/cos
-     *      approximations and is typically ~1e-34.
+     *      Error is determined by the underlying sine/cosine approximations,
+     *      range reduction, and division; it can increase near poles. Binary128
+     *      storage does not imply binary128-level function accuracy.
      *
      * @param x Input angle (bytes16)
-     * @return bytes16 High-precision tan(x), or QNAN if undefined
+     * @return bytes16 Approximation of tan(x), or QNAN if undefined
      */
     function tan(bytes16 x) internal pure returns (bytes16) {
         bytes16 s = TSC.sin(x);
@@ -51,7 +52,7 @@ library TrigonometryTanCot {
     // cot(x)
     // ------------------------------------------------------------
     /**
-     * @notice Computes cot(x) in binary128 precision.
+     * @notice Computes a binary128-encoded approximation of cot(x).
      * @dev Implementation:
      *        cot(x) = cos(x) / sin(x).
      *
@@ -59,10 +60,12 @@ library TrigonometryTanCot {
      *        - Returns QNAN when sin(x) ≈ 0 (undefined).
      *        - Propagates QNAN from sin or cos if present.
      *
-     *      Precision matches underlying sin/cos evaluation (~1e-34).
+     *      Error is determined by the underlying sine/cosine approximations,
+     *      range reduction, and division; it can increase near poles. Binary128
+     *      storage does not imply binary128-level function accuracy.
      *
      * @param x Input angle (bytes16)
-     * @return bytes16 High-precision cot(x), or QNAN if undefined
+     * @return bytes16 Approximation of cot(x), or QNAN if undefined
      */
     function cot(bytes16 x) internal pure returns (bytes16) {
         bytes16 s = TSC.sin(x);

@@ -433,7 +433,7 @@ function printBooleanSummary(title: string, method: string, records: BoolRecord[
 // Test Suite
 // ------------------------------------------------------------
 
-describe("Trigonometry Library - Multi-Case Accuracy Benchmarks", function () {
+describe("Trigonometry Library - Harness-Observable Accuracy Benchmarks (1e-12 scale)", function () {
     let harness: TrigonometryHarness;
 
     let QPI: string;
@@ -540,9 +540,9 @@ describe("Trigonometry Library - Multi-Case Accuracy Benchmarks", function () {
             }
         }
 
-        printNumericSummary("Symmetry Accuracy Results", "sin(-x) = -sin(x)", sinRecords);
-        printNumericSummary("Symmetry Accuracy Results", "cos(-x) = cos(x)", cosRecords);
-        printNumericSummary("Symmetry Accuracy Results", "atan(-x) = -atan(x)", atanRecords);
+        printNumericSummary("Harness-Observable Symmetry Results", "sin(-x) = -sin(x)", sinRecords);
+        printNumericSummary("Harness-Observable Symmetry Results", "cos(-x) = cos(x)", cosRecords);
+        printNumericSummary("Harness-Observable Symmetry Results", "atan(-x) = -atan(x)", atanRecords);
 
         expect(sinRecords).to.have.length(NUM_CASES);
         expect(cosRecords).to.have.length(NUM_CASES);
@@ -610,8 +610,8 @@ describe("Trigonometry Library - Multi-Case Accuracy Benchmarks", function () {
             }
         }
 
-        printNumericSummary("Periodicity Accuracy Results", "sin(x + 2pi) = sin(x)", sinRecords);
-        printNumericSummary("Periodicity Accuracy Results", "cos(x + 2pi) = cos(x)", cosRecords);
+        printNumericSummary("Harness-Observable Periodicity Results", "sin(x + 2pi) = sin(x)", sinRecords);
+        printNumericSummary("Harness-Observable Periodicity Results", "cos(x + 2pi) = cos(x)", cosRecords);
 
         expect(sinRecords).to.have.length(NUM_CASES);
         expect(cosRecords).to.have.length(NUM_CASES);
@@ -650,7 +650,7 @@ describe("Trigonometry Library - Multi-Case Accuracy Benchmarks", function () {
         }
 
         printNumericSummary(
-            "Difference Accuracy Results at pi/4",
+            "Harness-Observable Difference Results at pi/4",
             "|sin(pi/4) - cos(pi/4)|",
             records
         );
@@ -836,13 +836,13 @@ describe("Trigonometry Library - Multi-Case Accuracy Benchmarks", function () {
             }
         }
 
-        printNumericSummary("Random Accuracy Results", "sin(x)", sinRecords);
-        printNumericSummary("Random Accuracy Results", "cos(x)", cosRecords);
-        printNumericSummary("Random Accuracy Results", "tan(x)", tanRecords);
-        printNumericSummary("Random Accuracy Results", "cot(x)", cotRecords);
-        printNumericSummary("Random Accuracy Results", "asin(x)", asinRecords);
-        printNumericSummary("Random Accuracy Results", "acos(x)", acosRecords);
-        printNumericSummary("Random Accuracy Results", "atan(x)", atanRecords);
+        printNumericSummary("Harness-Observable Oracle Results", "sin(x)", sinRecords);
+        printNumericSummary("Harness-Observable Oracle Results", "cos(x)", cosRecords);
+        printNumericSummary("Harness-Observable Oracle Results", "tan(x)", tanRecords);
+        printNumericSummary("Harness-Observable Oracle Results", "cot(x)", cotRecords);
+        printNumericSummary("Harness-Observable Oracle Results", "asin(x)", asinRecords);
+        printNumericSummary("Harness-Observable Oracle Results", "acos(x)", acosRecords);
+        printNumericSummary("Harness-Observable Oracle Results", "atan(x)", atanRecords);
 
         expect(sinRecords).to.have.length(NUM_CASES);
         expect(cosRecords).to.have.length(NUM_CASES);
@@ -974,9 +974,9 @@ describe("Trigonometry Library - Multi-Case Accuracy Benchmarks", function () {
             }
         }
 
-        printNumericSummary("Consistency Accuracy Results", "asin(sin(x)) ≈ x", asinSinRecords);
-        printNumericSummary("Consistency Accuracy Results", "acos(cos(x)) ≈ x", acosCosRecords);
-        printNumericSummary("Consistency Accuracy Results", "tan(atan(x)) ≈ x", tanAtanRecords);
+        printNumericSummary("Harness-Observable Consistency Results", "asin(sin(x)) ≈ x", asinSinRecords);
+        printNumericSummary("Harness-Observable Consistency Results", "acos(cos(x)) ≈ x", acosCosRecords);
+        printNumericSummary("Harness-Observable Consistency Results", "tan(atan(x)) ≈ x", tanAtanRecords);
 
         expect(asinSinRecords).to.have.length(NUM_CASES);
         expect(acosCosRecords).to.have.length(NUM_CASES);

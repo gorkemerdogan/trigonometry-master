@@ -6,10 +6,10 @@ import {QuadConstants as QC} from "../libraries/QuadConstants.sol";
 
 /**
  * @title TrigonometrySinCos
- * @notice High-precision sine and cosine evaluation in IEEE-754 binary128 (bytes16).
- *         Implements quadrant-aware angle reduction followed by degree-limited
- *         core polynomials on the interval [-π/4, +π/4]. Provides sin(x) and cos(x)
- *         used by higher-level trigonometry modules.
+ * @notice Sine and cosine evaluation using IEEE-754 binary128 (bytes16) arithmetic.
+ *         Implements quadrant-aware angle reduction followed by finite Taylor
+ *         polynomials on the interval [-π/4, +π/4]. Function accuracy is limited
+ *         by range reduction and polynomial truncation, not just the binary128 format.
  */
 library TrigonometrySinCos {
     // ------------------------------------------------------------
@@ -98,7 +98,10 @@ library TrigonometrySinCos {
      *        sin(x) = x + x * z * P(z),   z = x²
      *
      *      where P(z) is a degree-5 polynomial matching the odd terms
-     *      of the sine series up to x¹³.
+     *      of the sine series through x¹³. The leading omitted term is -x¹⁵/15!;
+     *      its magnitude is at most about 2.1e-14 on this core interval.
+     *      That is a Taylor-truncation estimate only and excludes reduction and
+     *      binary128 arithmetic error.
      *
      * @param x Angle in core interval [-π/4, +π/4]
      * @return bytes16 Approximated sin(x)
@@ -153,7 +156,10 @@ library TrigonometrySinCos {
      *        cos(x) = 1 + z * Q(z),   z = x²
      *
      *      where Q(z) is a degree-5 polynomial matching the even cosine
-     *      terms up to x¹².
+     *      terms through x¹². The leading omitted term is x¹⁴/14!;
+     *      its magnitude is at most about 3.9e-13 on this core interval.
+     *      That is a Taylor-truncation estimate only and excludes reduction and
+     *      binary128 arithmetic error.
      *
      * @param x Angle in core interval [-π/4, +π/4]
      * @return bytes16 Approximated cos(x)
@@ -203,7 +209,7 @@ library TrigonometrySinCos {
     // sin(x)
     // ------------------------------------------------------------
     /**
-     * @notice Computes sin(x) in binary128 precision.
+     * @notice Computes a binary128-encoded approximation of sin(x).
      * @dev Procedure:
      *        (1) reduceAngle → core domain and mask
      *        (2) handle exact multiples of π/2
@@ -212,7 +218,7 @@ library TrigonometrySinCos {
      *        (5) apply quadrant sign adjustment (bit1)
      *
      * @param x Input angle (bytes16)
-     * @return bytes16 High-precision sin(x)
+     * @return bytes16 Approximation of sin(x), encoded as binary128
      */
     function sin(bytes16 x) internal pure returns (bytes16) {
         // 1) Range reduction → xr in [-π/2, π/2], mask holds swap/sign info
@@ -257,7 +263,7 @@ library TrigonometrySinCos {
     // cos(x)
     // ------------------------------------------------------------
     /**
-     * @notice Computes cos(x) in binary128 precision.
+     * @notice Computes a binary128-encoded approximation of cos(x).
      * @dev Procedure mirrors sin(x):
      *        (1) reduceAngle → core domain and mask
      *        (2) handle exact multiples of π/2
@@ -266,7 +272,7 @@ library TrigonometrySinCos {
      *        (5) apply cosine sign from mask bit2
      *
      * @param x Input angle (bytes16)
-     * @return bytes16 High-precision cos(x)
+     * @return bytes16 Approximation of cos(x), encoded as binary128
      */
     function cos(bytes16 x) internal pure returns (bytes16) {
         // 1) Range reduction

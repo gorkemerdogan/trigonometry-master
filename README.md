@@ -1,8 +1,8 @@
 # Trigonometry Master
 
-Deterministic quadruple-precision trigonometric operations for Ethereum-compatible environments.
+Deterministic trigonometric approximations using binary128 arithmetic for Ethereum-compatible environments.
 
-This library provides a stateless trigonometric module built for smart contracts that require high-precision numerical computation under deterministic EVM execution. It is designed for research-oriented and engineering-focused on-chain applications where reproducibility, precision, and modularity are critical.
+This library provides a stateless trigonometric module built for smart contracts that require deterministic numerical computation. It is designed for research-oriented and engineering-focused on-chain applications where reproducibility and modularity are important.
 
 ## Overview
 
@@ -21,8 +21,8 @@ The library is intended for deterministic on-chain numerical workflows such as:
 - **Diamond Pattern Compatibility**  
   Designed to integrate cleanly into modular smart contract systems based on the Diamond Pattern.
 
-- **Quadruple Precision**  
-  Full **IEEE-754 binary128** implementation using `bytes16`, providing approximately **34 decimal digits** of precision.
+- **Binary128 Arithmetic**
+  Values and arithmetic use `bytes16` IEEE-754 binary128 operations. This representation has roughly 34 decimal digits of arithmetic precision, but it does not by itself guarantee 34-decimal trigonometric-function accuracy.
 
 - **Deterministic Execution**  
   Produces identical outputs across all EVM-compatible nodes, enabling reproducible and verifiable computation.
@@ -64,7 +64,11 @@ Its primary purpose is to support advanced numerical applications such as:
 
 ## Precision Model
 
-All computations are performed using **quadruple-precision floating-point numbers** represented as `bytes16`, based on the **IEEE-754 binary128** standard.
+Values and arithmetic use `bytes16` values based on the IEEE-754 binary128 format. The implemented trigonometric functions also use angle reduction and finite polynomial approximations, so their function error is determined by those algorithms as well as the arithmetic format.
+
+The current sine core retains Taylor terms through x¹³ and the cosine core through x¹² on the reduced interval [-π/4, π/4]. The leading omitted Taylor terms at the interval edge are approximately 2.1e-14 for sine and 3.9e-13 for cosine; these estimates exclude range-reduction and arithmetic error. The library therefore does not claim binary128-level empirical accuracy for its trigonometric functions.
+
+The current accuracy test harness converts values through a 1e12 fixed-point scale. Its benchmark output is consequently observable only to 1e-12 and should be read as a measured harness-level result, not as a 34-decimal accuracy measurement.
 
 This precision model is especially useful for smart contract applications where traditional integer-based arithmetic is insufficient for:
 
@@ -86,7 +90,7 @@ This library is suitable for projects involving:
 - on-chain scientific computation
 - deterministic simulation components
 - mathematical tooling for blockchain research
-- high-precision geometric calculations
+- geometric calculations with explicit error validation
 - educational and experimental numerical smart contracts
 
 ## License
