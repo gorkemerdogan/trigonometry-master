@@ -17,6 +17,26 @@ library TrigonometrySinCos {
     // ------------------------------------------------------------
 
     bytes16 internal constant QZERO = 0x00000000000000000000000000000000;
+    bytes16 internal constant ONE = 0x3fff0000000000000000000000000000;
+
+    // These are the exact binary128 results of the previous MathLib runtime
+    // construction: ±MathLib.div(MathLib.fromUInt(1), MathLib.fromUInt(n)).
+    // test/trigonometry.polynomial.ab.gas.test.ts audits every encoding and
+    // asserts bit-identical polynomial results against that runtime baseline.
+    bytes16 internal constant SIN_C1 = 0xbffc5555555555555555555555555555; // -1/3!
+    bytes16 internal constant SIN_C2 = 0x3ff81111111111111111111111111111; //  1/5!
+    bytes16 internal constant SIN_C3 = 0xbff2a01a01a01a01a01a01a01a01a01a; // -1/7!
+    bytes16 internal constant SIN_C4 = 0x3fec71de3a556c7338faac1c88e50017; //  1/9!
+    bytes16 internal constant SIN_C5 = 0xbfe5ae64567f544e38fe747e4b837dc7; // -1/11!
+    bytes16 internal constant SIN_C6 = 0x3fde6124613a86d097ca38331d23af68; //  1/13!
+
+    bytes16 internal constant COS_C1 = 0xbffe0000000000000000000000000000; // -1/2!
+    bytes16 internal constant COS_C2 = 0x3ffa5555555555555555555555555555; //  1/4!
+    bytes16 internal constant COS_C3 = 0xbff56c16c16c16c16c16c16c16c16c16; // -1/6!
+    bytes16 internal constant COS_C4 = 0x3fefa01a01a01a01a01a01a01a01a01a; //  1/8!
+    bytes16 internal constant COS_C5 = 0xbfe927e4fb7789f5c72ef016d3ea6678; // -1/10!
+    bytes16 internal constant COS_C6 = 0x3fe21eed8eff8d897b544da987acfe84; //  1/12!
+
     // |x| <= 2^32 radians. This keeps the current binary128 quotient-and-subtract
     // reducer in its characterized range; broader support needs multiprecision
     // reduction such as Payne-Hanek.
@@ -150,29 +170,13 @@ library TrigonometrySinCos {
         // c5 = -1/11!
         // c6 =  1/13!
 
-        bytes16 c1 = MathLib.neg(
-            MathLib.div(MathLib.fromUInt(1), MathLib.fromUInt(6))
-        ); // 3! = 6
-        bytes16 c2 = MathLib.div(MathLib.fromUInt(1), MathLib.fromUInt(120)); // 5! = 120
-        bytes16 c3 = MathLib.neg(
-            MathLib.div(MathLib.fromUInt(1), MathLib.fromUInt(5040))
-        ); // 7! = 5040
-        bytes16 c4 = MathLib.div(MathLib.fromUInt(1), MathLib.fromUInt(362880)); // 9! = 362880
-        bytes16 c5 = MathLib.neg(
-            MathLib.div(MathLib.fromUInt(1), MathLib.fromUInt(39916800))
-        ); // 11! = 39916800
-        bytes16 c6 = MathLib.div(
-            MathLib.fromUInt(1),
-            MathLib.fromUInt(6227020800)
-        ); // 13! = 6227020800
-
         // Horner: y = c6; y = c5 + z*y; ...; y = c1 + z*y;
-        bytes16 y = c6;
-        y = MathLib.add(c5, MathLib.mul(z, y));
-        y = MathLib.add(c4, MathLib.mul(z, y));
-        y = MathLib.add(c3, MathLib.mul(z, y));
-        y = MathLib.add(c2, MathLib.mul(z, y));
-        y = MathLib.add(c1, MathLib.mul(z, y));
+        bytes16 y = SIN_C6;
+        y = MathLib.add(SIN_C5, MathLib.mul(z, y));
+        y = MathLib.add(SIN_C4, MathLib.mul(z, y));
+        y = MathLib.add(SIN_C3, MathLib.mul(z, y));
+        y = MathLib.add(SIN_C2, MathLib.mul(z, y));
+        y = MathLib.add(SIN_C1, MathLib.mul(z, y));
 
         // sin(x) ≈ x + x*z*y
         bytes16 xz = MathLib.mul(x, z);
@@ -207,33 +211,17 @@ library TrigonometrySinCos {
         // d5 = -1/10!
         // d6 =  1/12!
 
-        bytes16 d1 = MathLib.neg(
-            MathLib.div(MathLib.fromUInt(1), MathLib.fromUInt(2))
-        ); // 2! = 2
-        bytes16 d2 = MathLib.div(MathLib.fromUInt(1), MathLib.fromUInt(24)); // 4! = 24
-        bytes16 d3 = MathLib.neg(
-            MathLib.div(MathLib.fromUInt(1), MathLib.fromUInt(720))
-        ); // 6! = 720
-        bytes16 d4 = MathLib.div(MathLib.fromUInt(1), MathLib.fromUInt(40320)); // 8! = 40320
-        bytes16 d5 = MathLib.neg(
-            MathLib.div(MathLib.fromUInt(1), MathLib.fromUInt(3628800))
-        ); // 10! = 3628800
-        bytes16 d6 = MathLib.div(
-            MathLib.fromUInt(1),
-            MathLib.fromUInt(479001600)
-        ); // 12! = 479001600
-
         // Horner: q = d6; q = d5 + z*q; ...; q = d1 + z*q;
-        bytes16 q = d6;
-        q = MathLib.add(d5, MathLib.mul(z, q));
-        q = MathLib.add(d4, MathLib.mul(z, q));
-        q = MathLib.add(d3, MathLib.mul(z, q));
-        q = MathLib.add(d2, MathLib.mul(z, q));
-        q = MathLib.add(d1, MathLib.mul(z, q));
+        bytes16 q = COS_C6;
+        q = MathLib.add(COS_C5, MathLib.mul(z, q));
+        q = MathLib.add(COS_C4, MathLib.mul(z, q));
+        q = MathLib.add(COS_C3, MathLib.mul(z, q));
+        q = MathLib.add(COS_C2, MathLib.mul(z, q));
+        q = MathLib.add(COS_C1, MathLib.mul(z, q));
 
         // cos(x) ≈ 1 + z*q
         bytes16 zq = MathLib.mul(z, q);
-        return MathLib.add(MathLib.fromUInt(1), zq);
+        return MathLib.add(ONE, zq);
     }
 
     // ------------------------------------------------------------

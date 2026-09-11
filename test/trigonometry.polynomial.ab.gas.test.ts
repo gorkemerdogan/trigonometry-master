@@ -151,6 +151,19 @@ describe("Sin/cos core polynomial A/B gas characterization", function () {
                 const production = await callableReference[method](input.raw);
                 expect(production, `${method} production parity at ${input.label}`).to.equal(expected);
 
+                // Nonnegative core inputs take the identity reduction path, so the
+                // public production entry point must match the prior runtime-
+                // coefficient baseline bit-for-bit as well. Negative inputs retain
+                // the separate modulo-reduction coverage in the accuracy suites.
+                if (!input.label.startsWith("-")) {
+                    const publicMethod = method === "sinCore" ? "sin" : "cos";
+                    const publicOutput = await callableReference[publicMethod](input.raw);
+                    expect(
+                        publicOutput,
+                        `${publicMethod} public production parity at ${input.label}`
+                    ).to.equal(expected);
+                }
+
                 for (const variant of variants.slice(1)) {
                     const actual = await (variant.contract as unknown as Harness)[method](input.raw);
                     expect(actual, `${method} ${variant.name} at ${input.label}`).to.equal(expected);
