@@ -128,6 +128,12 @@ The gas suite reports `transaction_receipt_gas` for the direct `TrigonometryHarn
 
 Harness-direct receipt gas excludes `TrigonometryFacet`, Diamond fallback/delegatecall routing, deployment, and `diamondCut` installation. The compatibility/test harness may deploy and link `MathLib`; production does neither. The focused production-path benchmark deploys a minimal Diamond with the self-contained trigonometry facet, reports deployment and installation receipts separately, and reports its routed results alongside the harness baseline. Those local measurements exclude optional facets and chain-specific conditions such as fee policy, so they are descriptive rather than a universal production-cost estimate.
 
+## Test Coverage
+
+The default test suite includes raw binary128 edge coverage: ULP-adjacent values around signed zero, quadrant, and pole boundaries; signed-zero behavior; subnormal and largest-finite inputs; multiple NaN payloads and infinities; `asin`/`acos` values immediately inside and outside `[-1, 1]`; and output-range invariants. These are behavioral and encoding checks, not claims of binary128-level function accuracy.
+
+It also includes Diamond integration coverage for deployment, selector installation, loupe results, proxy routing, access control, and selector replacement/removal.
+
 ## Intended Use Cases
 
 This library is suitable for projects involving:
