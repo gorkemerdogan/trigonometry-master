@@ -301,13 +301,7 @@ describe("Trigonometry sin/cos high-resolution characterization", function () {
     let harness: HighResolutionHarness;
 
     before(async function () {
-        const MathLibFactory = await ethers.getContractFactory("MathLib");
-        const mathLib = await MathLibFactory.deploy();
-        await mathLib.waitForDeployment();
-
-        const HarnessFactory = await ethers.getContractFactory("TrigonometryHighResolutionHarness", {
-            libraries: { MathLib: await mathLib.getAddress() },
-        });
+        const HarnessFactory = await ethers.getContractFactory("TrigonometryHighResolutionHarness");
         harness = (await HarnessFactory.deploy()) as unknown as HighResolutionHarness;
         await harness.waitForDeployment();
     });

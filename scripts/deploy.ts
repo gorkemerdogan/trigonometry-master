@@ -34,10 +34,6 @@ async function main() {
   const owner = await deployer.getAddress();
   console.log("Deploying TrigonometryMaster with account:", owner);
 
-  const MathLibFactory = await ethers.getContractFactory("MathLib");
-  const mathLib = await MathLibFactory.deploy();
-  console.log("MathLib deployed at:", await mathLib.getAddress());
-
   const DiamondCutFacetFactory = await ethers.getContractFactory("DiamondCutFacet");
   const diamondCutFacet = await DiamondCutFacetFactory.deploy();
   console.log("DiamondCutFacet deployed at:", await diamondCutFacet.getAddress());
@@ -54,9 +50,7 @@ async function main() {
   const diamondLoupeFacet = await DiamondLoupeFacetFactory.deploy();
   console.log("DiamondLoupeFacet deployed at:", await diamondLoupeFacet.getAddress());
 
-  const TrigonometryFacetFactory = await ethers.getContractFactory("TrigonometryFacet", {
-    libraries: { MathLib: await mathLib.getAddress() },
-  });
+  const TrigonometryFacetFactory = await ethers.getContractFactory("TrigonometryFacet");
   const trigonometryFacet = await TrigonometryFacetFactory.deploy();
   console.log("TrigonometryFacet deployed at:", await trigonometryFacet.getAddress());
 
@@ -87,7 +81,6 @@ async function main() {
   console.log("------------------------------------------------------------");
   console.log("DEPLOYMENT RECEIPT GAS");
   console.log("------------------------------------------------------------");
-  console.log("MathLib:", await deploymentReceiptGas(mathLib, "MathLib"));
   console.log("DiamondCutFacet:", await deploymentReceiptGas(diamondCutFacet, "DiamondCutFacet"));
   console.log("TrigonometryMaster:", await deploymentReceiptGas(trigonometryMaster, "TrigonometryMaster"));
   console.log("OwnershipFacet:", await deploymentReceiptGas(ownershipFacet, "OwnershipFacet"));

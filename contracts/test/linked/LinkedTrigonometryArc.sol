@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import { TrigMath } from "../libraries/TrigMath.sol";
-import { QuadConstants as QC } from "../libraries/QuadConstants.sol";
-import { TrigonometrySinCos as TSC } from "./TrigonometrySinCos.sol";
+import { MathLib } from "../../libraries/MathLib.sol";
+import { QuadConstants as QC } from "../../libraries/QuadConstants.sol";
+import { LinkedTrigonometrySinCos as TSC } from "./LinkedTrigonometrySinCos.sol";
 
 /**
  * @title TrigonometryArc Library
@@ -12,13 +12,13 @@ import { TrigonometrySinCos as TSC } from "./TrigonometrySinCos.sol";
  *         Implements domain checks, stable polynomial approximations, half-angle
  *         reductions, and Newton refinements.
  */
-library TrigonometryArc {
+library LinkedTrigonometryArc {
     bytes16 internal constant QZERO = 0x00000000000000000000000000000000;
     bytes16 internal constant QNAN  = 0x7fff8000000000000000000000000000;
 
     /// @dev True for either signed binary128 infinity; NaN is handled separately.
     function _isInfinity(bytes16 x) private pure returns (bool) {
-        return !TrigMath.isNaN(x) && ((uint128(x) >> 112) & 0x7fff) == 0x7fff;
+        return !MathLib.isNaN(x) && ((uint128(x) >> 112) & 0x7fff) == 0x7fff;
     }
 
     // ------------------------------------------------------------
@@ -43,49 +43,49 @@ library TrigonometryArc {
      *         outside the finite domain
      */
     function asin(bytes16 x) internal pure returns (bytes16) {
-        if (TrigMath.isNaN(x) || _isInfinity(x)) return QNAN;
+        if (MathLib.isNaN(x) || _isInfinity(x)) return QNAN;
 
         // Domain check
-        bytes16 one = TrigMath.fromUInt(1);
-        bytes16 ax  = TrigMath.abs(x);
-        if (TrigMath.cmp(ax, one) > 0) {
+        bytes16 one = MathLib.fromUInt(1);
+        bytes16 ax  = MathLib.abs(x);
+        if (MathLib.cmp(ax, one) > 0) {
             return QNAN;
         }
 
         // Tiny x: asin(x) ≈ x. Use the shared, correctly constructed 1e-6
         // threshold rather than relying on a hand-encoded binary128 literal.
         bytes16 tiny = QC.EPS_1e6();
-        if (TrigMath.cmp(ax, tiny) < 0) {
+        if (MathLib.cmp(ax, tiny) < 0) {
             return x;
         }
 
-        bytes16 C3  = TrigMath.div(TrigMath.fromInt(1),   TrigMath.fromInt(6));
-        bytes16 C5  = TrigMath.div(TrigMath.fromInt(3),   TrigMath.fromInt(40));
-        bytes16 C7  = TrigMath.div(TrigMath.fromInt(5),   TrigMath.fromInt(112));
-        bytes16 C9  = TrigMath.div(TrigMath.fromInt(35),  TrigMath.fromInt(1152));
-        bytes16 C11 = TrigMath.div(TrigMath.fromInt(63),  TrigMath.fromInt(2816));
-        bytes16 C13 = TrigMath.div(TrigMath.fromInt(231), TrigMath.fromInt(13312));
-        bytes16 C15 = TrigMath.div(TrigMath.fromInt(143), TrigMath.fromInt(10240));
+        bytes16 C3  = MathLib.div(MathLib.fromInt(1),   MathLib.fromInt(6));
+        bytes16 C5  = MathLib.div(MathLib.fromInt(3),   MathLib.fromInt(40));
+        bytes16 C7  = MathLib.div(MathLib.fromInt(5),   MathLib.fromInt(112));
+        bytes16 C9  = MathLib.div(MathLib.fromInt(35),  MathLib.fromInt(1152));
+        bytes16 C11 = MathLib.div(MathLib.fromInt(63),  MathLib.fromInt(2816));
+        bytes16 C13 = MathLib.div(MathLib.fromInt(231), MathLib.fromInt(13312));
+        bytes16 C15 = MathLib.div(MathLib.fromInt(143), MathLib.fromInt(10240));
 
-        bytes16 half = TrigMath.div(one, TrigMath.fromUInt(2)); // 0.5
+        bytes16 half = MathLib.div(one, MathLib.fromUInt(2)); // 0.5
         bytes16 y0; // initial approximation
 
         // ─────────────────────────────────────────
         // Region 1: |x| ≤ 0.5  → polynomial in x
         // asin(x) ≈ x + x³·P(x²)
         // ─────────────────────────────────────────
-        if (TrigMath.cmp(ax, half) <= 0) {
-            bytes16 x2 = TrigMath.mul(x, x);
+        if (MathLib.cmp(ax, half) <= 0) {
+            bytes16 x2 = MathLib.mul(x, x);
             bytes16 p = C15;
 
-            p = TrigMath.add(C13, TrigMath.mul(x2, p));
-            p = TrigMath.add(C11, TrigMath.mul(x2, p));
-            p = TrigMath.add(C9,  TrigMath.mul(x2, p));
-            p = TrigMath.add(C7,  TrigMath.mul(x2, p));
-            p = TrigMath.add(C5,  TrigMath.mul(x2, p));
-            p = TrigMath.add(C3,  TrigMath.mul(x2, p));
+            p = MathLib.add(C13, MathLib.mul(x2, p));
+            p = MathLib.add(C11, MathLib.mul(x2, p));
+            p = MathLib.add(C9,  MathLib.mul(x2, p));
+            p = MathLib.add(C7,  MathLib.mul(x2, p));
+            p = MathLib.add(C5,  MathLib.mul(x2, p));
+            p = MathLib.add(C3,  MathLib.mul(x2, p));
 
-            y0 = TrigMath.add(x, TrigMath.mul(x, TrigMath.mul(x2, p)));
+            y0 = MathLib.add(x, MathLib.mul(x, MathLib.mul(x2, p)));
         } else {
             // ─────────────────────────────────────
             // Region 2: |x| > 0.5
@@ -96,32 +96,32 @@ library TrigonometryArc {
             //    r = sqrt((1 − u)/2)  ∈ [0, 0.5]
             // Then restore sign.
             // ─────────────────────────────────────
-            bool neg = (TrigMath.cmp(x, QZERO) < 0);
-            bytes16 u = neg ? TrigMath.neg(x) : x;
+            bool neg = (MathLib.cmp(x, QZERO) < 0);
+            bytes16 u = neg ? MathLib.neg(x) : x;
 
-            bytes16 oneMinus = TrigMath.sub(one, u);         // 1 − u
-            bytes16 halfTimes = TrigMath.mul(half, oneMinus); // (1 − u)/2
-            bytes16 r = TrigMath.sqrt(halfTimes);             // 0 ≤ r ≤ 0.5
+            bytes16 oneMinus = MathLib.sub(one, u);         // 1 − u
+            bytes16 halfTimes = MathLib.mul(half, oneMinus); // (1 − u)/2
+            bytes16 r = MathLib.sqrt(halfTimes);             // 0 ≤ r ≤ 0.5
 
             // asin(r) with same Region-1 polynomial
-            bytes16 r2 = TrigMath.mul(r, r);
+            bytes16 r2 = MathLib.mul(r, r);
 
             bytes16 p2 = C15;
-            p2 = TrigMath.add(C13, TrigMath.mul(r2, p2));
-            p2 = TrigMath.add(C11, TrigMath.mul(r2, p2));
-            p2 = TrigMath.add(C9,  TrigMath.mul(r2, p2));
-            p2 = TrigMath.add(C7,  TrigMath.mul(r2, p2));
-            p2 = TrigMath.add(C5,  TrigMath.mul(r2, p2));
-            p2 = TrigMath.add(C3,  TrigMath.mul(r2, p2));
+            p2 = MathLib.add(C13, MathLib.mul(r2, p2));
+            p2 = MathLib.add(C11, MathLib.mul(r2, p2));
+            p2 = MathLib.add(C9,  MathLib.mul(r2, p2));
+            p2 = MathLib.add(C7,  MathLib.mul(r2, p2));
+            p2 = MathLib.add(C5,  MathLib.mul(r2, p2));
+            p2 = MathLib.add(C3,  MathLib.mul(r2, p2));
 
-            bytes16 asin_r = TrigMath.add(r, TrigMath.mul(r, TrigMath.mul(r2, p2))); // asin(r)
-            bytes16 two    = TrigMath.fromUInt(2);
-            bytes16 twoAr  = TrigMath.mul(two, asin_r);
+            bytes16 asin_r = MathLib.add(r, MathLib.mul(r, MathLib.mul(r2, p2))); // asin(r)
+            bytes16 two    = MathLib.fromUInt(2);
+            bytes16 twoAr  = MathLib.mul(two, asin_r);
 
             bytes16 halfPi = QC.HALF_PI();
-            bytes16 approx = TrigMath.sub(halfPi, twoAr);   // asin(u) for u ≥ 0
+            bytes16 approx = MathLib.sub(halfPi, twoAr);   // asin(u) for u ≥ 0
 
-            if (neg) approx = TrigMath.neg(approx);
+            if (neg) approx = MathLib.neg(approx);
             y0 = approx;
         }
 
@@ -134,15 +134,15 @@ library TrigonometryArc {
         bytes16 y = y0;
         for (uint8 i = 0; i < 3; ++i) {
             (bytes16 sy, bytes16 cy) = TSC.sincos(y);
-            bytes16 f  = TrigMath.sub(sy, x);
+            bytes16 f  = MathLib.sub(sy, x);
 
             // If cos is ~0 (shouldn't happen in principal branch), just break
-            if (TrigMath.cmp(TrigMath.abs(cy), tiny) <= 0) {
+            if (MathLib.cmp(MathLib.abs(cy), tiny) <= 0) {
                 break;
             }
 
-            bytes16 delta = TrigMath.div(f, cy);
-            y = TrigMath.sub(y, delta);
+            bytes16 delta = MathLib.div(f, cy);
+            y = MathLib.sub(y, delta);
         }
 
         return y;
@@ -166,25 +166,25 @@ library TrigonometryArc {
      * @return bytes16 acos(x) in radians
      */
     function acos(bytes16 x) internal pure returns (bytes16) {
-        if (TrigMath.isNaN(x) || _isInfinity(x)) return QNAN;
+        if (MathLib.isNaN(x) || _isInfinity(x)) return QNAN;
 
-        bytes16 one = TrigMath.fromUInt(1);
-        bytes16 ax  = TrigMath.abs(x);
+        bytes16 one = MathLib.fromUInt(1);
+        bytes16 ax  = MathLib.abs(x);
 
-        if (TrigMath.cmp(ax, one) > 0) {
+        if (MathLib.cmp(ax, one) > 0) {
             return QNAN;
         }
 
         bytes16 half = QC.HALF();
-        if (TrigMath.cmp(x, half) > 0) {
-            bytes16 reduced = TrigMath.sqrt(
-                TrigMath.mul(half, TrigMath.sub(one, x))
+        if (MathLib.cmp(x, half) > 0) {
+            bytes16 reduced = MathLib.sqrt(
+                MathLib.mul(half, MathLib.sub(one, x))
             );
-            return TrigMath.mul(TrigMath.fromUInt(2), asin(reduced));
+            return MathLib.mul(MathLib.fromUInt(2), asin(reduced));
         }
 
         bytes16 a = asin(x);
-        return TrigMath.sub(QC.HALF_PI(), a);
+        return MathLib.sub(QC.HALF_PI(), a);
     }
 
     // ------------------------------------------------------------
@@ -206,40 +206,40 @@ library TrigonometryArc {
      * @return bytes16 atan(x) in radians; QNAN for NaN, signed π/2 for infinity
      */
     function atan(bytes16 x) internal pure returns (bytes16) {
-        if (TrigMath.isNaN(x)) return QNAN;
+        if (MathLib.isNaN(x)) return QNAN;
         if (_isInfinity(x)) {
-            return (uint128(x) >> 127) == 0 ? QC.HALF_PI() : TrigMath.neg(QC.HALF_PI());
+            return (uint128(x) >> 127) == 0 ? QC.HALF_PI() : MathLib.neg(QC.HALF_PI());
         }
-        if (TrigMath.isZero(x)) return x;
+        if (MathLib.isZero(x)) return x;
 
-        bytes16 one = TrigMath.fromUInt(1);
-        bytes16 ax  = TrigMath.abs(x);
+        bytes16 one = MathLib.fromUInt(1);
+        bytes16 ax  = MathLib.abs(x);
 
         // Above 2^113, the leading 1/x correction is below half a binary128 ulp
         // near π/2, so returning the limiting value is safe for this format.
         bytes16 huge = 0x40700000000000000000000000000000; // 2^113
-        if (TrigMath.cmp(ax, huge) > 0) {
-            return (TrigMath.cmp(x, QZERO) > 0)
+        if (MathLib.cmp(ax, huge) > 0) {
+            return (MathLib.cmp(x, QZERO) > 0)
                 ? QC.HALF_PI()
-                : TrigMath.neg(QC.HALF_PI());
+                : MathLib.neg(QC.HALF_PI());
         }
 
         // For |x| > 1, avoid forming x / sqrt(1 + x²): the added 1 can round
         // away long before the atan correction is negligible. The reciprocal
         // identity preserves that correction while reusing the small-input path.
-        if (TrigMath.cmp(ax, one) > 0) {
-            bytes16 reciprocal = TrigMath.div(one, ax);
+        if (MathLib.cmp(ax, one) > 0) {
+            bytes16 reciprocal = MathLib.div(one, ax);
             bytes16 correction = atan(reciprocal);
-            bytes16 result = TrigMath.sub(QC.HALF_PI(), correction);
-            return TrigMath.cmp(x, QZERO) < 0 ? TrigMath.neg(result) : result;
+            bytes16 result = MathLib.sub(QC.HALF_PI(), correction);
+            return MathLib.cmp(x, QZERO) < 0 ? MathLib.neg(result) : result;
         }
 
         // (1) Initial estimate using asin(u)
         //     where u = x / sqrt(1 + x²), ensuring |u| < 1.
-        bytes16 x2    = TrigMath.mul(x, x);
-        bytes16 denom = TrigMath.add(one, x2);      // 1 + x²
-        bytes16 root  = TrigMath.sqrt(denom);       // sqrt(1 + x²)
-        bytes16 u     = TrigMath.div(x, root);      // normalized input
+        bytes16 x2    = MathLib.mul(x, x);
+        bytes16 denom = MathLib.add(one, x2);      // 1 + x²
+        bytes16 root  = MathLib.sqrt(denom);       // sqrt(1 + x²)
+        bytes16 u     = MathLib.div(x, root);      // normalized input
 
         bytes16 y = asin(u); // first-order approximation of atan(x)
 
@@ -250,19 +250,19 @@ library TrigonometryArc {
             (bytes16 sy, bytes16 cy) = TSC.sincos(y);
 
             // Skip iteration if cos(y) ≈ 0 (near singularity)
-            if (TrigMath.cmp(TrigMath.abs(cy), tiny) <= 0) {
+            if (MathLib.cmp(MathLib.abs(cy), tiny) <= 0) {
                 break;
             }
 
             // Compute tan(y)
-            bytes16 tanY  = TrigMath.div(sy, cy);
-            bytes16 tanY2 = TrigMath.mul(tanY, tanY);
-            bytes16 sec2  = TrigMath.add(one, tanY2);   // 1 + tan²(y)
+            bytes16 tanY  = MathLib.div(sy, cy);
+            bytes16 tanY2 = MathLib.mul(tanY, tanY);
+            bytes16 sec2  = MathLib.add(one, tanY2);   // 1 + tan²(y)
 
             // Update step: delta = (tan(y) - x) / (1 + tan²(y))
-            bytes16 f     = TrigMath.sub(tanY, x);
-            bytes16 delta = TrigMath.div(f, sec2);
-            y = TrigMath.sub(y, delta);
+            bytes16 f     = MathLib.sub(tanY, x);
+            bytes16 delta = MathLib.div(f, sec2);
+            y = MathLib.sub(y, delta);
         }
 
         return y;

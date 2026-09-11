@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import { TrigMath } from "../libraries/TrigMath.sol";
-import { TrigonometrySinCos as TSC } from "./TrigonometrySinCos.sol";
+import { MathLib } from "../../libraries/MathLib.sol";
+import { LinkedTrigonometrySinCos as TSC } from "./LinkedTrigonometrySinCos.sol";
 
 /**
  * @title  TrigonometryTanCot
@@ -10,7 +10,7 @@ import { TrigonometrySinCos as TSC } from "./TrigonometrySinCos.sol";
  *         Uses the finite sine/cosine approximations from TrigonometrySinCos and
  *         applies domain checks for singularities where results are undefined.
  */
-library TrigonometryTanCot {
+library LinkedTrigonometryTanCot {
 
     bytes16 internal constant QZERO = 0x00000000000000000000000000000000;
     bytes16 internal constant QNAN  = 0x7fff8000000000000000000000000000;
@@ -46,13 +46,13 @@ library TrigonometryTanCot {
     function tan(bytes16 x) internal pure returns (bytes16) {
         (bytes16 s, bytes16 c) = TSC.sincos(x);
 
-        if (TrigMath.isNaN(s) || TrigMath.isNaN(c)) return QNAN;
+        if (MathLib.isNaN(s) || MathLib.isNaN(c)) return QNAN;
 
         // tan undefined when cos ≈ 0
-        if (TrigMath.cmp(TrigMath.abs(c), TINY) < 0)
+        if (MathLib.cmp(MathLib.abs(c), TINY) < 0)
             return QNAN;
 
-        return TrigMath.div(s, c);
+        return MathLib.div(s, c);
     }
 
     // ------------------------------------------------------------
@@ -78,12 +78,12 @@ library TrigonometryTanCot {
     function cot(bytes16 x) internal pure returns (bytes16) {
         (bytes16 s, bytes16 c) = TSC.sincos(x);
 
-        if (TrigMath.isNaN(s) || TrigMath.isNaN(c)) return QNAN;
+        if (MathLib.isNaN(s) || MathLib.isNaN(c)) return QNAN;
 
         // cot undefined when sin ≈ 0
-        if (TrigMath.cmp(TrigMath.abs(s), TINY) < 0)
+        if (MathLib.cmp(MathLib.abs(s), TINY) < 0)
             return QNAN;
 
-        return TrigMath.div(c, s);
+        return MathLib.div(c, s);
     }
 }

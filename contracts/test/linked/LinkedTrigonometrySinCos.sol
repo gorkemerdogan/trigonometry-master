@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import {TrigMath} from "../libraries/TrigMath.sol";
-import {QuadConstants as QC} from "../libraries/QuadConstants.sol";
+import {MathLib} from "../../libraries/MathLib.sol";
+import {QuadConstants as QC} from "../../libraries/QuadConstants.sol";
 
 /**
  * @title TrigonometrySinCos
@@ -11,7 +11,7 @@ import {QuadConstants as QC} from "../libraries/QuadConstants.sol";
  *         polynomials on the interval [-π/4, +π/4]. Function accuracy is limited
  *         by range reduction and polynomial truncation, not just the binary128 format.
  */
-library TrigonometrySinCos {
+library LinkedTrigonometrySinCos {
     // ------------------------------------------------------------
     // Helpers
     // ------------------------------------------------------------
@@ -49,22 +49,22 @@ library TrigonometrySinCos {
      *      because this reducer does not preserve phase for arbitrary binary128 angles.
      */
     function _validateReductionArgument(bytes16 x) private pure {
-        if (TrigMath.isNaN(x)) revert("TRIG_NAN_ANGLE");
+        if (MathLib.isNaN(x)) revert("TRIG_NAN_ANGLE");
 
         uint128 exponent = (uint128(x) >> 112) & 0x7fff;
         if (exponent == 0x7fff) revert("TRIG_INFINITE_ANGLE");
 
         require(
-            TrigMath.cmp(TrigMath.abs(x), MAX_REDUCTION_ARGUMENT) <= 0,
+            MathLib.cmp(MathLib.abs(x), MAX_REDUCTION_ARGUMENT) <= 0,
             "TRIG_ARGUMENT_OUT_OF_RANGE"
         );
     }
 
     function _floorToInt(bytes16 x) private pure returns (int256) {
-        if (TrigMath.isZero(x)) return 0;
+        if (MathLib.isZero(x)) return 0;
 
-        int256 k = TrigMath.toInt(x);
-        if (TrigMath.cmp(x, TrigMath.fromInt(k)) < 0) {
+        int256 k = MathLib.toInt(x);
+        if (MathLib.cmp(x, MathLib.fromInt(k)) < 0) {
             k -= 1;
         }
         return k;
@@ -100,16 +100,16 @@ library TrigonometrySinCos {
         bytes16 twopi = QC.TWO_PI();
 
         // 1) floor-based mod 2π
-        bytes16 t = TrigMath.div(x, twopi);
+        bytes16 t = MathLib.div(x, twopi);
         int256 k = _floorToInt(t);
-        bytes16 kq = TrigMath.fromInt(k);
-        bytes16 xm = TrigMath.sub(x, TrigMath.mul(kq, twopi));
+        bytes16 kq = MathLib.fromInt(k);
+        bytes16 xm = MathLib.sub(x, MathLib.mul(kq, twopi));
 
         // 2) floor-based mod π/2
-        bytes16 t2 = TrigMath.div(xm, halfpi);
+        bytes16 t2 = MathLib.div(xm, halfpi);
         int256 k2 = _floorToInt(t2);
-        bytes16 k2q = TrigMath.fromInt(k2);
-        xr = TrigMath.sub(xm, TrigMath.mul(k2q, halfpi));
+        bytes16 k2q = MathLib.fromInt(k2);
+        xr = MathLib.sub(xm, MathLib.mul(k2q, halfpi));
 
         uint8 q = uint8(uint256(k2 & 3));
 
@@ -158,7 +158,7 @@ library TrigonometrySinCos {
      * @return bytes16 Approximated sin(x)
      */
     function _sin_poly(bytes16 x) internal pure returns (bytes16) {
-        bytes16 z = TrigMath.mul(x, x); // z = x^2
+        bytes16 z = MathLib.mul(x, x); // z = x^2
 
         // Coefficients for P(z): c1..c6  (for x^3..x^13 terms)
         // P(z) = c1 + c2*z + c3*z^2 + c4*z^3 + c5*z^4 + c6*z^5
@@ -172,16 +172,16 @@ library TrigonometrySinCos {
 
         // Horner: y = c6; y = c5 + z*y; ...; y = c1 + z*y;
         bytes16 y = SIN_C6;
-        y = TrigMath.add(SIN_C5, TrigMath.mul(z, y));
-        y = TrigMath.add(SIN_C4, TrigMath.mul(z, y));
-        y = TrigMath.add(SIN_C3, TrigMath.mul(z, y));
-        y = TrigMath.add(SIN_C2, TrigMath.mul(z, y));
-        y = TrigMath.add(SIN_C1, TrigMath.mul(z, y));
+        y = MathLib.add(SIN_C5, MathLib.mul(z, y));
+        y = MathLib.add(SIN_C4, MathLib.mul(z, y));
+        y = MathLib.add(SIN_C3, MathLib.mul(z, y));
+        y = MathLib.add(SIN_C2, MathLib.mul(z, y));
+        y = MathLib.add(SIN_C1, MathLib.mul(z, y));
 
         // sin(x) ≈ x + x*z*y
-        bytes16 xz = TrigMath.mul(x, z);
-        bytes16 corr = TrigMath.mul(xz, y);
-        return TrigMath.add(x, corr);
+        bytes16 xz = MathLib.mul(x, z);
+        bytes16 corr = MathLib.mul(xz, y);
+        return MathLib.add(x, corr);
     }
 
     /**
@@ -200,7 +200,7 @@ library TrigonometrySinCos {
      * @return bytes16 Approximated cos(x)
      */
     function _cos_poly(bytes16 x) internal pure returns (bytes16) {
-        bytes16 z = TrigMath.mul(x, x); // z = x^2
+        bytes16 z = MathLib.mul(x, x); // z = x^2
 
         // Q(z) = d1 + d2*z + d3*z^2 + d4*z^3 + d5*z^4 + d6*z^5
         //
@@ -213,15 +213,15 @@ library TrigonometrySinCos {
 
         // Horner: q = d6; q = d5 + z*q; ...; q = d1 + z*q;
         bytes16 q = COS_C6;
-        q = TrigMath.add(COS_C5, TrigMath.mul(z, q));
-        q = TrigMath.add(COS_C4, TrigMath.mul(z, q));
-        q = TrigMath.add(COS_C3, TrigMath.mul(z, q));
-        q = TrigMath.add(COS_C2, TrigMath.mul(z, q));
-        q = TrigMath.add(COS_C1, TrigMath.mul(z, q));
+        q = MathLib.add(COS_C5, MathLib.mul(z, q));
+        q = MathLib.add(COS_C4, MathLib.mul(z, q));
+        q = MathLib.add(COS_C3, MathLib.mul(z, q));
+        q = MathLib.add(COS_C2, MathLib.mul(z, q));
+        q = MathLib.add(COS_C1, MathLib.mul(z, q));
 
         // cos(x) ≈ 1 + z*q
-        bytes16 zq = TrigMath.mul(z, q);
-        return TrigMath.add(ONE, zq);
+        bytes16 zq = MathLib.mul(z, q);
+        return MathLib.add(ONE, zq);
     }
 
     /**
@@ -231,23 +231,23 @@ library TrigonometrySinCos {
      *      bit-identical results against separate calls.
      */
     function _sincos_poly(bytes16 x) private pure returns (bytes16 sinValue, bytes16 cosValue) {
-        bytes16 z = TrigMath.mul(x, x);
+        bytes16 z = MathLib.mul(x, x);
 
         bytes16 sinAccumulator = SIN_C6;
-        sinAccumulator = TrigMath.add(SIN_C5, TrigMath.mul(z, sinAccumulator));
-        sinAccumulator = TrigMath.add(SIN_C4, TrigMath.mul(z, sinAccumulator));
-        sinAccumulator = TrigMath.add(SIN_C3, TrigMath.mul(z, sinAccumulator));
-        sinAccumulator = TrigMath.add(SIN_C2, TrigMath.mul(z, sinAccumulator));
-        sinAccumulator = TrigMath.add(SIN_C1, TrigMath.mul(z, sinAccumulator));
-        sinValue = TrigMath.add(x, TrigMath.mul(TrigMath.mul(x, z), sinAccumulator));
+        sinAccumulator = MathLib.add(SIN_C5, MathLib.mul(z, sinAccumulator));
+        sinAccumulator = MathLib.add(SIN_C4, MathLib.mul(z, sinAccumulator));
+        sinAccumulator = MathLib.add(SIN_C3, MathLib.mul(z, sinAccumulator));
+        sinAccumulator = MathLib.add(SIN_C2, MathLib.mul(z, sinAccumulator));
+        sinAccumulator = MathLib.add(SIN_C1, MathLib.mul(z, sinAccumulator));
+        sinValue = MathLib.add(x, MathLib.mul(MathLib.mul(x, z), sinAccumulator));
 
         bytes16 cosAccumulator = COS_C6;
-        cosAccumulator = TrigMath.add(COS_C5, TrigMath.mul(z, cosAccumulator));
-        cosAccumulator = TrigMath.add(COS_C4, TrigMath.mul(z, cosAccumulator));
-        cosAccumulator = TrigMath.add(COS_C3, TrigMath.mul(z, cosAccumulator));
-        cosAccumulator = TrigMath.add(COS_C2, TrigMath.mul(z, cosAccumulator));
-        cosAccumulator = TrigMath.add(COS_C1, TrigMath.mul(z, cosAccumulator));
-        cosValue = TrigMath.add(ONE, TrigMath.mul(z, cosAccumulator));
+        cosAccumulator = MathLib.add(COS_C5, MathLib.mul(z, cosAccumulator));
+        cosAccumulator = MathLib.add(COS_C4, MathLib.mul(z, cosAccumulator));
+        cosAccumulator = MathLib.add(COS_C3, MathLib.mul(z, cosAccumulator));
+        cosAccumulator = MathLib.add(COS_C2, MathLib.mul(z, cosAccumulator));
+        cosAccumulator = MathLib.add(COS_C1, MathLib.mul(z, cosAccumulator));
+        cosValue = MathLib.add(ONE, MathLib.mul(z, cosAccumulator));
     }
 
     /**
@@ -258,23 +258,23 @@ library TrigonometrySinCos {
      */
     function sincos(bytes16 x) internal pure returns (bytes16 sinX, bytes16 cosX) {
         // Preserve sin's signed zero and cos's positive-one behavior.
-        if (TrigMath.isZero(x)) return (x, ONE);
+        if (MathLib.isZero(x)) return (x, ONE);
 
         (bytes16 xr, uint8 mask) = reduceAngle(x);
 
-        if (TrigMath.isZero(xr)) {
+        if (MathLib.isZero(xr)) {
             uint8 q = _quadrant(mask);
             if (q == 0) return (QZERO, ONE);
             if (q == 1) return (ONE, QZERO);
-            if (q == 2) return (QZERO, TrigMath.neg(ONE));
-            return (TrigMath.neg(ONE), QZERO);
+            if (q == 2) return (QZERO, MathLib.neg(ONE));
+            return (MathLib.neg(ONE), QZERO);
         }
 
         bool swap = (mask & 1) != 0;
-        bytes16 axr = TrigMath.abs(xr);
-        if (TrigMath.cmp(axr, QC.QUARTER_PI()) > 0) {
-            bytes16 mapped = TrigMath.sub(QC.HALF_PI(), axr);
-            if (TrigMath.cmp(xr, QZERO) < 0) mapped = TrigMath.neg(mapped);
+        bytes16 axr = MathLib.abs(xr);
+        if (MathLib.cmp(axr, QC.QUARTER_PI()) > 0) {
+            bytes16 mapped = MathLib.sub(QC.HALF_PI(), axr);
+            if (MathLib.cmp(xr, QZERO) < 0) mapped = MathLib.neg(mapped);
             xr = mapped;
             swap = !swap;
         }
@@ -283,8 +283,8 @@ library TrigonometrySinCos {
         sinX = swap ? cosCore : sinCore;
         cosX = swap ? sinCore : cosCore;
 
-        if ((mask & 2) != 0) sinX = TrigMath.neg(sinX);
-        if ((mask & 4) != 0) cosX = TrigMath.neg(cosX);
+        if ((mask & 2) != 0) sinX = MathLib.neg(sinX);
+        if ((mask & 4) != 0) cosX = MathLib.neg(cosX);
     }
 
     // ------------------------------------------------------------
@@ -307,17 +307,17 @@ library TrigonometrySinCos {
      */
     function sin(bytes16 x) internal pure returns (bytes16) {
         // Preserve the sign bit required by odd-function signed-zero semantics.
-        if (TrigMath.isZero(x)) return x;
+        if (MathLib.isZero(x)) return x;
 
         // 1) Range reduction → xr in [-π/2, π/2], mask holds swap/sign info
         (bytes16 xr, uint8 mask) = reduceAngle(x);
 
         // 2) Special case: exact multiples of π/2
         //    xr == 0 => x = k * (π/2)
-        if (TrigMath.isZero(xr)) {
+        if (MathLib.isZero(xr)) {
             uint8 q = _quadrant(mask);
-            if (q == 1) return TrigMath.fromUInt(1); // +π/2, 5π/2, ...
-            if (q == 3) return TrigMath.neg(TrigMath.fromUInt(1)); // -π/2, 3π/2, ...
+            if (q == 1) return MathLib.fromUInt(1); // +π/2, 5π/2, ...
+            if (q == 3) return MathLib.neg(MathLib.fromUInt(1)); // -π/2, 3π/2, ...
             return QZERO; // 0, π, 2π, ...
         }
 
@@ -326,11 +326,11 @@ library TrigonometrySinCos {
 
         // 3) Core mapping: |xr| > π/4 → use complementary angle
         //    xr' = sign(xr) * (π/2 - |xr|)
-        bytes16 axr = TrigMath.abs(xr);
-        if (TrigMath.cmp(axr, QC.QUARTER_PI()) > 0) {
-            bytes16 newxr = TrigMath.sub(QC.HALF_PI(), axr);
-            if (TrigMath.cmp(xr, QZERO) < 0) {
-                newxr = TrigMath.neg(newxr);
+        bytes16 axr = MathLib.abs(xr);
+        if (MathLib.cmp(axr, QC.QUARTER_PI()) > 0) {
+            bytes16 newxr = MathLib.sub(QC.HALF_PI(), axr);
+            if (MathLib.cmp(xr, QZERO) < 0) {
+                newxr = MathLib.neg(newxr);
             }
             xr = newxr;
             swap = !swap; // toggle: sin ↔ cos
@@ -341,7 +341,7 @@ library TrigonometrySinCos {
 
         // 5) Apply final sign from quadrant
         if (sinNeg) {
-            y = TrigMath.neg(y);
+            y = MathLib.neg(y);
         }
 
         return y;
@@ -370,10 +370,10 @@ library TrigonometrySinCos {
         (bytes16 xr, uint8 mask) = reduceAngle(x);
 
         // 2) Special case: exact multiples of π/2
-        if (TrigMath.isZero(xr)) {
+        if (MathLib.isZero(xr)) {
             uint8 q = _quadrant(mask);
-            if (q == 0) return TrigMath.fromUInt(1); // 0, 2π, ...
-            if (q == 2) return TrigMath.neg(TrigMath.fromUInt(1)); // π, 3π, ...
+            if (q == 0) return MathLib.fromUInt(1); // 0, 2π, ...
+            if (q == 2) return MathLib.neg(MathLib.fromUInt(1)); // π, 3π, ...
             return QZERO; // ±π/2, ...
         }
 
@@ -381,11 +381,11 @@ library TrigonometrySinCos {
         bool cosNeg = (mask & 4) != 0; // bit2
 
         // 3) Core mapping to [-π/4, +π/4]
-        bytes16 axr = TrigMath.abs(xr);
-        if (TrigMath.cmp(axr, QC.QUARTER_PI()) > 0) {
-            bytes16 newxr = TrigMath.sub(QC.HALF_PI(), axr);
-            if (TrigMath.cmp(xr, QZERO) < 0) {
-                newxr = TrigMath.neg(newxr);
+        bytes16 axr = MathLib.abs(xr);
+        if (MathLib.cmp(axr, QC.QUARTER_PI()) > 0) {
+            bytes16 newxr = MathLib.sub(QC.HALF_PI(), axr);
+            if (MathLib.cmp(xr, QZERO) < 0) {
+                newxr = MathLib.neg(newxr);
             }
             xr = newxr;
             swap = !swap; // cos ↔ sin
@@ -396,7 +396,7 @@ library TrigonometrySinCos {
 
         // 5) Quadrant sign
         if (cosNeg) {
-            y = TrigMath.neg(y);
+            y = MathLib.neg(y);
         }
 
         return y;

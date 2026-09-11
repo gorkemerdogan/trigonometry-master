@@ -35,10 +35,6 @@ const RUNTIME_TARGETS: RuntimeTarget[] = [
         fullyQualifiedName: "contracts/TrigonometryMaster.sol:TrigonometryMaster",
         label: "TrigonometryMaster",
     },
-    {
-        fullyQualifiedName: "contracts/libraries/MathLib.sol:MathLib",
-        label: "MathLib",
-    },
 ];
 
 function runtimeByteLength(deployedBytecode: string): number {

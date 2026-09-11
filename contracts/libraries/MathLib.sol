@@ -5,11 +5,10 @@ import { ABDKMathQuad } from "abdk-libraries-solidity/ABDKMathQuad.sol";
 
 /**
  * @title MathLib
- * @notice Thin wrapper around ABDKMathQuad with PUBLIC functions.
- *         Purpose: avoid inlining ABDKMathQuad into every trigonometric library.
- *
- *         Using public functions ensures all trig libraries CALL this library
- *         instead of embedding the heavy ABDK code => bytecode drops massively.
+ * @notice External-call wrapper around ABDKMathQuad retained for standalone consumers
+ *         and linked-baseline test harnesses.
+ * @dev Production trigonometry uses the internal TrigMath façade; it does not deploy
+ *      or link this library.
  */
 library MathLib {
 

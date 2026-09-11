@@ -40,6 +40,7 @@ describe("Trigonometry production Diamond-route gas benchmark", function () {
     let directHarness: TrigEndpoint;
     let routedTrigonometry: TrigEndpoint;
     let deploymentGas: Record<string, bigint>;
+    let harnessMathLibDeploymentGas: bigint;
     let installationGas: bigint;
     let trigonometryFacetRuntimeBytes: number;
 
@@ -48,7 +49,8 @@ describe("Trigonometry production Diamond-route gas benchmark", function () {
 
         const MathLibFactory = await ethers.getContractFactory("MathLib");
         const mathLib = await MathLibFactory.deploy();
-        deploymentGas = {"MathLib": await deploymentReceiptGas(mathLib, "MathLib")};
+        harnessMathLibDeploymentGas = await deploymentReceiptGas(mathLib, "MathLib");
+        deploymentGas = {};
 
         const DiamondCutFactory = await ethers.getContractFactory("DiamondCutFacet");
         const diamondCutFacet = await DiamondCutFactory.deploy();
@@ -58,9 +60,7 @@ describe("Trigonometry production Diamond-route gas benchmark", function () {
         const diamond = await DiamondFactory.deploy(await deployer.getAddress(), await diamondCutFacet.getAddress());
         deploymentGas["TrigonometryMaster"] = await deploymentReceiptGas(diamond, "TrigonometryMaster");
 
-        const TrigonometryFacetFactory = await ethers.getContractFactory("TrigonometryFacet", {
-            libraries: {MathLib: await mathLib.getAddress()},
-        });
+        const TrigonometryFacetFactory = await ethers.getContractFactory("TrigonometryFacet");
         const trigonometryFacet = await TrigonometryFacetFactory.deploy();
         deploymentGas["TrigonometryFacet"] = await deploymentReceiptGas(trigonometryFacet, "TrigonometryFacet");
         const trigonometryFacetRuntime = await ethers.provider.getCode(await trigonometryFacet.getAddress());
@@ -99,11 +99,13 @@ describe("Trigonometry production Diamond-route gas benchmark", function () {
         console.log("------------------------------------------------------------");
         console.log("MINIMAL PRODUCTION DIAMOND ROUTE: DEPLOYMENT/INSTALL RECEIPTS");
         console.log("------------------------------------------------------------");
+        console.log(`Test-only TrigonometryHarness MathLib deployment receipt gas: ${harnessMathLibDeploymentGas}`);
         for (const [label, gas] of Object.entries(deploymentGas)) {
             console.log(`${label} deployment receipt gas: ${gas}`);
         }
         console.log(`TrigonometryFacet deployed runtime bytes: ${trigonometryFacetRuntimeBytes}`);
         console.log(`TrigonometryFacet diamond-cut installation receipt gas: ${installationGas}`);
+        console.log("Production no longer deploys or links MathLib; the MathLib receipt above belongs only to the comparison harness.");
         console.log("These one-time receipts are reported separately and are not included in per-call gas.");
         console.log("The minimal route includes DiamondCutFacet + TrigonometryMaster + TrigonometryFacet; optional ownership/loupe facets are excluded.");
 
