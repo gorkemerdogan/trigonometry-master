@@ -2,6 +2,7 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
 import type { Contract } from "ethers";
+import { ulpDistance } from "./helpers/binary128";
 
 type HighResolutionHarness = Contract & {
     sinCore(x: string): Promise<string>;
@@ -42,12 +43,14 @@ type Observation = {
     actual: bigint;
     expected: bigint;
     absError: bigint;
+    ulpError?: bigint;
     relError?: bigint;
 };
 
 type Characterization = {
     count: number;
     maxAbsolute: Observation;
+    maxUlp?: Observation;
     maxRelative?: Observation;
 };
 
@@ -247,6 +250,11 @@ function observation(inputRaw: string, actualRaw: string, expected: bigint): Obs
         actual,
         expected,
         absError,
+        // A ULP count is useful only away from roots: near zero, a small and
+        // acceptable absolute residual spans an enormous number of subnormal ULPs.
+        ulpError: expectedMagnitude >= RELATIVE_MIN_MAGNITUDE
+            ? ulpDistance(actualRaw, encodeFixed(expected))
+            : undefined,
         relError: expectedMagnitude >= RELATIVE_MIN_MAGNITUDE
             ? divRound(absError * RELATIVE_SCALE, expectedMagnitude)
             : undefined,
@@ -255,13 +263,19 @@ function observation(inputRaw: string, actualRaw: string, expected: bigint): Obs
 
 function characterize(observations: Observation[]): Characterization {
     const maxAbsolute = observations.reduce((a, b) => a.absError >= b.absError ? a : b);
+    const ulp = observations.filter(
+        (item): item is Observation & { ulpError: bigint } => item.ulpError !== undefined
+    );
+    const maxUlp = ulp.length === 0
+        ? undefined
+        : ulp.reduce((a, b) => a.ulpError >= b.ulpError ? a : b);
     const relative = observations.filter(
         (item): item is Observation & { relError: bigint } => item.relError !== undefined
     );
     const maxRelative = relative.length === 0
         ? undefined
         : relative.reduce((a, b) => a.relError >= b.relError ? a : b);
-    return { count: observations.length, maxAbsolute, maxRelative };
+    return { count: observations.length, maxAbsolute, maxUlp, maxRelative };
 }
 
 function formatFixed(value: bigint): string {
@@ -280,6 +294,9 @@ function printCharacterization(label: string, result: Characterization): void {
     console.log(`Worst input        : ${formatFixed(result.maxAbsolute.input)} (${result.maxAbsolute.inputRaw})`);
     console.log(`Actual             : ${formatFixed(result.maxAbsolute.actual)}`);
     console.log(`Reference          : ${formatFixed(result.maxAbsolute.expected)}`);
+    console.log(`Max ULP distance (|reference| >= 1e-30): ${result.maxUlp?.ulpError !== undefined
+        ? `${result.maxUlp.ulpError} at ${result.maxUlp.inputRaw}`
+        : "N/A (reference too close to zero)"}`);
     console.log(`Max relative error (|reference| >= 1e-30): ${result.maxRelative?.relError !== undefined
         ? formatRelative(result.maxRelative.relError)
         : "N/A (reference too close to zero)"}`);

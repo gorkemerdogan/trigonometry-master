@@ -5,7 +5,7 @@
   "license": "MIT",
   "author": "Mahmut Görkem Erdoğan",
   "scripts": {
-    "test": "hardhat test test/bytecode.size.test.ts test/diamond.safety.test.ts test/mathlib.behavior.test.ts test/test-utils.execution.test.ts test/trigonometry.acc.test.ts test/trigonometry.hires.acc.test.ts test/trigonometry.range.test.ts",
+    "test": "hardhat test test/bytecode.size.test.ts test/diamond.safety.test.ts test/diamond.integration.test.ts test/mathlib.behavior.test.ts test/test-utils.execution.test.ts test/trigonometry.acc.test.ts test/trigonometry.edge-cases.test.ts test/trigonometry.hires.acc.test.ts test/trigonometry.range.test.ts",
     "test:bytecode": "hardhat test test/bytecode.size.test.ts"
   },
   "files": [
