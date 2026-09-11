@@ -44,8 +44,7 @@ library TrigonometryTanCot {
      * @return bytes16 Approximation of tan(x), or QNAN if undefined
      */
     function tan(bytes16 x) internal pure returns (bytes16) {
-        bytes16 s = TSC.sin(x);
-        bytes16 c = TSC.cos(x);
+        (bytes16 s, bytes16 c) = TSC.sincos(x);
 
         if (MathLib.isNaN(s) || MathLib.isNaN(c)) return QNAN;
 
@@ -77,8 +76,7 @@ library TrigonometryTanCot {
      * @return bytes16 Approximation of cot(x), or QNAN if undefined
      */
     function cot(bytes16 x) internal pure returns (bytes16) {
-        bytes16 s = TSC.sin(x);
-        bytes16 c = TSC.cos(x);
+        (bytes16 s, bytes16 c) = TSC.sincos(x);
 
         if (MathLib.isNaN(s) || MathLib.isNaN(c)) return QNAN;
 

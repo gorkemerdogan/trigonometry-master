@@ -224,6 +224,69 @@ library TrigonometrySinCos {
         return MathLib.add(ONE, zq);
     }
 
+    /**
+     * @dev Evaluates both core Taylor polynomials with a single x² calculation.
+     *      The coefficients and Horner operation order match _sin_poly and
+     *      _cos_poly exactly; the shared sincos A/B regression asserts
+     *      bit-identical results against separate calls.
+     */
+    function _sincos_poly(bytes16 x) private pure returns (bytes16 sinValue, bytes16 cosValue) {
+        bytes16 z = MathLib.mul(x, x);
+
+        bytes16 sinAccumulator = SIN_C6;
+        sinAccumulator = MathLib.add(SIN_C5, MathLib.mul(z, sinAccumulator));
+        sinAccumulator = MathLib.add(SIN_C4, MathLib.mul(z, sinAccumulator));
+        sinAccumulator = MathLib.add(SIN_C3, MathLib.mul(z, sinAccumulator));
+        sinAccumulator = MathLib.add(SIN_C2, MathLib.mul(z, sinAccumulator));
+        sinAccumulator = MathLib.add(SIN_C1, MathLib.mul(z, sinAccumulator));
+        sinValue = MathLib.add(x, MathLib.mul(MathLib.mul(x, z), sinAccumulator));
+
+        bytes16 cosAccumulator = COS_C6;
+        cosAccumulator = MathLib.add(COS_C5, MathLib.mul(z, cosAccumulator));
+        cosAccumulator = MathLib.add(COS_C4, MathLib.mul(z, cosAccumulator));
+        cosAccumulator = MathLib.add(COS_C3, MathLib.mul(z, cosAccumulator));
+        cosAccumulator = MathLib.add(COS_C2, MathLib.mul(z, cosAccumulator));
+        cosAccumulator = MathLib.add(COS_C1, MathLib.mul(z, cosAccumulator));
+        cosValue = MathLib.add(ONE, MathLib.mul(z, cosAccumulator));
+    }
+
+    /**
+     * @notice Computes a paired binary128 sine/cosine approximation.
+     * @dev Shares validation, range reduction, complementary mapping, and x² for
+     *      consumers that require both values. Standalone sin and cos preserve
+     *      their established paths. The A/B tests prove parity with those paths.
+     */
+    function sincos(bytes16 x) internal pure returns (bytes16 sinX, bytes16 cosX) {
+        // Preserve sin's signed zero and cos's positive-one behavior.
+        if (MathLib.isZero(x)) return (x, ONE);
+
+        (bytes16 xr, uint8 mask) = reduceAngle(x);
+
+        if (MathLib.isZero(xr)) {
+            uint8 q = _quadrant(mask);
+            if (q == 0) return (QZERO, ONE);
+            if (q == 1) return (ONE, QZERO);
+            if (q == 2) return (QZERO, MathLib.neg(ONE));
+            return (MathLib.neg(ONE), QZERO);
+        }
+
+        bool swap = (mask & 1) != 0;
+        bytes16 axr = MathLib.abs(xr);
+        if (MathLib.cmp(axr, QC.QUARTER_PI()) > 0) {
+            bytes16 mapped = MathLib.sub(QC.HALF_PI(), axr);
+            if (MathLib.cmp(xr, QZERO) < 0) mapped = MathLib.neg(mapped);
+            xr = mapped;
+            swap = !swap;
+        }
+
+        (bytes16 sinCore, bytes16 cosCore) = _sincos_poly(xr);
+        sinX = swap ? cosCore : sinCore;
+        cosX = swap ? sinCore : cosCore;
+
+        if ((mask & 2) != 0) sinX = MathLib.neg(sinX);
+        if ((mask & 4) != 0) cosX = MathLib.neg(cosX);
+    }
+
     // ------------------------------------------------------------
     // sin(x)
     // ------------------------------------------------------------

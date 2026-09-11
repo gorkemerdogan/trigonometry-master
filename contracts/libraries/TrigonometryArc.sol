@@ -133,8 +133,7 @@ library TrigonometryArc {
         // ─────────────────────────────────────────
         bytes16 y = y0;
         for (uint8 i = 0; i < 3; ++i) {
-            bytes16 sy = TSC.sin(y);
-            bytes16 cy = TSC.cos(y);
+            (bytes16 sy, bytes16 cy) = TSC.sincos(y);
             bytes16 f  = MathLib.sub(sy, x);
 
             // If cos is ~0 (shouldn't happen in principal branch), just break
@@ -248,8 +247,7 @@ library TrigonometryArc {
         //     t_next = t - (tan(t) - x) / (1 + tan²(t))
         bytes16 tiny = QC.EPS_1e6();
         for (uint8 i = 0; i < 2; ++i) {
-            bytes16 sy = TSC.sin(y);
-            bytes16 cy = TSC.cos(y);
+            (bytes16 sy, bytes16 cy) = TSC.sincos(y);
 
             // Skip iteration if cos(y) ≈ 0 (near singularity)
             if (MathLib.cmp(MathLib.abs(cy), tiny) <= 0) {
