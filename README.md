@@ -91,11 +91,32 @@ This precision model is especially useful for smart contract applications where 
 
 ### Direct and Diamond deployment paths
 
-For this small set of seven stateless, pure trigonometric functions, a direct harness, directly deployed facet, or linked-library integration is the simpler and cheaper deployment path. It avoids Diamond fallback selector lookup, `delegatecall`, facet installation, and upgrade administration.
+For this small set of seven stateless, pure trigonometric functions, a direct harness or directly deployed facet is the simpler and cheaper deployment path. It avoids Diamond fallback selector lookup, `delegatecall`, facet installation, and upgrade administration.
 
 The Diamond path is optional. It adds routing gas, deployment and `diamondCut` installation complexity, and upgrade trust: an authorized upgrader can change which facet implements a selector. It can be justified when this module is part of a broader, upgradeable math suite or when independently extensible facets are valuable; it is not required merely to use the trigonometric functions.
 
-The benchmark suites label harness-direct and Diamond-routed execution separately. In the current local production-route benchmark at π/4, routing added approximately 4.5k gas per basic trigonometric call (about +4,510 to +4,884 gas for `sin`, `cos`, `tan`, and `cot`). This is a local comparison, not a network-independent cost guarantee.
+Production uses internal `TrigMath` arithmetic and does not deploy or link `MathLib`. `MathLib` remains in the repository for compatibility and test-baseline harnesses only.
+
+### Current local production measurements
+
+The following are local Hardhat measurements, not network-independent cost guarantees.
+
+| Measurement | Value |
+| --- | ---: |
+| `TrigonometryFacet` runtime bytecode | 18,333 bytes |
+| EIP-170 runtime-bytecode headroom | 6,243 bytes |
+| Project bytecode-budget headroom | 4,667 bytes |
+| `TrigonometryFacet` deployment receipt gas | 4,013,373 |
+| Deployment-topology saving versus linked `MathLib` | approximately 1,790,791 gas |
+
+| π/4 production Diamond-routed receipt | Gas |
+| --- | ---: |
+| `sin` | 43,473 |
+| `cos` | 42,504 |
+| `tan` | 54,827 |
+| `cot` | 54,831 |
+
+The benchmark suites label harness-direct and Diamond-routed paths separately. The direct harness is a compatibility/test baseline and is not the same deployment topology as the self-contained production facet.
 
 The trigonometric functions are separated by logical responsibility into dedicated internal modules, improving maintainability, extensibility, and clarity of implementation.
 
@@ -105,7 +126,7 @@ The accuracy suite reports `estimateGas` simulation values through `Trigonometry
 
 The gas suite reports `transaction_receipt_gas` for the direct `TrigonometryHarness` path. It also reports a trivial `benchmarkIdentity(bytes16)` transaction with the same one-`bytes16` ABI argument shape as a separate calldata/intrinsic baseline; this baseline is never subtracted from trigonometric gas. Its duplicate transactions are separate EVM transactions, so warm-access state does not persist from one measurement to the next. Outputs remain separately checked with `eth_call`.
 
-Harness-direct receipt gas excludes `TrigonometryFacet`, Diamond fallback/delegatecall routing, deployment, `diamondCut` installation, and `MathLib` deployment. The focused production-path benchmark deploys a minimal Diamond with the trigonometry facet, reports those deployment and installation receipts separately, and compares four direct-harness calls with Diamond-routed calls. Those local measurements exclude optional facets and chain-specific conditions such as fee policy, so they are descriptive rather than a universal production-cost estimate.
+Harness-direct receipt gas excludes `TrigonometryFacet`, Diamond fallback/delegatecall routing, deployment, and `diamondCut` installation. The compatibility/test harness may deploy and link `MathLib`; production does neither. The focused production-path benchmark deploys a minimal Diamond with the self-contained trigonometry facet, reports deployment and installation receipts separately, and reports its routed results alongside the harness baseline. Those local measurements exclude optional facets and chain-specific conditions such as fee policy, so they are descriptive rather than a universal production-cost estimate.
 
 ## Intended Use Cases
 
