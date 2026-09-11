@@ -89,7 +89,13 @@ This precision model is especially useful for smart contract applications where 
 
 ## Architecture Notes
 
-The library is built for modular integration and is suitable for systems following a **Diamond Pattern** structure. Its stateless nature makes it appropriate for reusable deployment in larger mathematical or scientific smart contract frameworks.
+### Direct and Diamond deployment paths
+
+For this small set of seven stateless, pure trigonometric functions, a direct harness, directly deployed facet, or linked-library integration is the simpler and cheaper deployment path. It avoids Diamond fallback selector lookup, `delegatecall`, facet installation, and upgrade administration.
+
+The Diamond path is optional. It adds routing gas, deployment and `diamondCut` installation complexity, and upgrade trust: an authorized upgrader can change which facet implements a selector. It can be justified when this module is part of a broader, upgradeable math suite or when independently extensible facets are valuable; it is not required merely to use the trigonometric functions.
+
+The benchmark suites label harness-direct and Diamond-routed execution separately. In the current local production-route benchmark at π/4, routing added approximately 4.5k gas per basic trigonometric call (about +4,510 to +4,884 gas for `sin`, `cos`, `tan`, and `cot`). This is a local comparison, not a network-independent cost guarantee.
 
 The trigonometric functions are separated by logical responsibility into dedicated internal modules, improving maintainability, extensibility, and clarity of implementation.
 
